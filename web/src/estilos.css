@@ -115,3 +115,48 @@ textarea { resize: vertical; }
 .lector { width: 100%; max-width: 420px; margin: 0 auto; } .lector.activo { min-height: 260px; border-radius: 8px; overflow: hidden; background: #000; }
 .fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
 .fotos img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid var(--borde); }
+
+/* ---- Vista tipo aplicación (celular) ---- */
+.marco { padding-bottom: 72px; min-height: 100vh; }
+.menu-abajo { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: space-around; background: #0b2a4a; border-top: 2px solid #1f6fd1; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+.menu-abajo a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #b9cce3; text-decoration: none; font-size: .78rem; font-weight: 600; padding: 4px 0; border-radius: 8px; max-width: 120px; }
+.menu-abajo a span { font-size: 1.25rem; line-height: 1; }
+.menu-abajo a.active { color: #fff; background: rgba(255,255,255,.08); }
+
+.rejilla-app { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (min-width: 760px) { .rejilla-app { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 760px; } }
+.tile { min-width: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 8px; text-decoration: none; color: var(--texto); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.tile:active { transform: scale(.98); }
+.mod-img { width: 100%; height: auto; display: block; border-radius: 10px; }
+.tile-nombre { font-size: .86rem; padding: 8px 4px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.form-cabecera { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.form-cabecera h1 { font-size: 1.15rem; }
+.volver { font-size: 1.6rem; text-decoration: none; color: var(--pri); line-height: 1; padding: 4px 8px; }
+.form-app { display: flex; flex-direction: column; gap: 18px; background: #fff; border: 1px solid var(--borde); border-top: 3px solid #1f6fd1; border-radius: var(--radio); padding: 18px 16px; }
+.form-app .campo-etiqueta { font-size: .85rem; letter-spacing: .02em; color: #2c3a4b; }
+.req { color: #1f6fd1; margin-left: 2px; }
+.campo-qr { display: flex; flex-wrap: wrap; gap: 8px; }
+.campo-qr input { flex: 1; min-width: 0; min-height: 50px; }
+.campo-qr .lector, .campo-qr .aviso { flex-basis: 100%; }
+.btn-qr { width: 50px; min-height: 50px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; color: #2c3a4b; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; }
+.btn-qr:disabled { opacity: .45; }
+.solo-lectura { background: #f4f6f9; border: 1px solid #e3e8ef; border-radius: 8px; padding: 12px; min-height: 50px; color: #3a4757; }
+.ok-linea { color: var(--ok); font-weight: 600; }
+.opciones-maq { display: flex; flex-direction: column; gap: 6px; }
+.opciones-maq .item { text-align: left; font: inherit; cursor: pointer; }
+.opciones-tipo .btn-opcion { font-weight: 700; letter-spacing: .03em; }
+.caja-foto { position: relative; display: flex; align-items: center; justify-content: center; min-height: 110px; border: 2px dashed #9fb3c8; border-radius: 10px; background: #f7fafd; color: var(--pri); font-weight: 700; font-size: 1.05rem; cursor: pointer; }
+.caja-foto input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.foto-mini { position: relative; }
+.foto-mini .quitar { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; }
+.btn-fin { width: 100%; min-height: 62px; background: #1d7a46; color: #fff; font-size: 1.1rem; letter-spacing: .03em; }
+.btn-fin:hover:not(:disabled) { background: #155f36; }
+.centrado { text-align: center; }
+.hecho { text-align: center; background: #fff; border: 1px solid var(--borde); border-radius: var(--radio); padding: 28px 16px; margin-bottom: 16px; }
+.hecho h1 { margin: 8px 0; } .hecho p { margin: 4px 0; }
+.hecho-icono { width: 72px; height: 72px; margin: 0 auto; border-radius: 50%; background: var(--ok-fondo); color: var(--ok); font-size: 2.4rem; display: flex; align-items: center; justify-content: center; }
+.hecho-hora { font-size: 1.15rem; font-weight: 700; color: var(--texto); margin-top: 10px !important; }
+.contenido.angosto + * , .contenido.angosto .btn-grande { margin-top: 10px; }
+.btn-opcion.activo:disabled { opacity: 1; }
+.tile-nombre { font-size: .78rem; }

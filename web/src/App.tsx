@@ -7,6 +7,7 @@ import Entrar from './pages/Entrar';
 import CambiarClave from './pages/CambiarClave';
 import Inicio from './pages/Inicio';
 import ModuloInicio from './pages/ModuloInicio';
+import Registro from './pages/Registro';
 import Escanear from './pages/Escanear';
 import FichaMaquina from './pages/FichaMaquina';
 import Trabajo from './pages/Trabajo';
@@ -55,16 +56,15 @@ function Marco({ children }: { children: ReactNode }) {
           </div>
         )}
       </header>
+      {children}
       {auth && sesion?.autorizado && (
-        <nav className="menu">
-          <NavLink to="/" end>Inicio</NavLink>
-          <NavLink to="/escanear">Escanear</NavLink>
-          <NavLink to="/trabajos">Trabajos</NavLink>
-          <NavLink to="/historial">Historial</NavLink>
-          {perfil === 'admin' && <NavLink to="/admin">Administración</NavLink>}
+        <nav className="menu-abajo">
+          <NavLink to="/" end><span aria-hidden="true">▦</span>Módulos</NavLink>
+          <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Trabajos</NavLink>
+          <NavLink to="/historial"><span aria-hidden="true">⏱</span>Historial</NavLink>
+          {perfil === 'admin' && <NavLink to="/admin"><span aria-hidden="true">⚙</span>Admin</NavLink>}
         </nav>
       )}
-      {children}
     </div>
   );
 }
@@ -81,7 +81,8 @@ export default function App() {
             <Route path="/entrar" element={<Entrar />} />
             <Route path="/cambiar-clave" element={<CambiarClave />} />
             <Route path="/" element={<Protegida><Inicio /></Protegida>} />
-            <Route path="/m/:codigo" element={<Protegida><ModuloInicio /></Protegida>} />
+            <Route path="/m/:codigo" element={<Protegida><Registro /></Protegida>} />
+            <Route path="/m/:codigo/panel" element={<Protegida><ModuloInicio /></Protegida>} />
             <Route path="/escanear" element={<Protegida><Escanear /></Protegida>} />
             <Route path="/maquina/:id" element={<Protegida><FichaMaquina /></Protegida>} />
             <Route path="/trabajo/:id" element={<Protegida><Trabajo /></Protegida>} />
