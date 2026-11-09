@@ -63,7 +63,7 @@ export default function Mantenimiento() {
   const [periodo, setPeriodo] = useState<Periodo>('mes');
   const [maqs, setMaqs] = useState<MaqProg[] | null>(null);
   const [trabs, setTrabs] = useState<Trab[] | null>(null);
-  const [abiertos, setAbiertos] = useState<{ en_proceso: number; pendiente_validacion: number }>({ en_proceso: 0, pendiente_validacion: 0 });
+  const [abiertos, setAbiertos] = useState<{ en_proceso: number }>({ en_proceso: 0 });
   const [error, setError] = useState<string | null>(null);
   const [listaProg, setListaProg] = useState<Estado>('vencida');
   const areas = modulos.find(m => m.id === modulo)?.areas ?? [];
@@ -87,10 +87,8 @@ export default function Mantenimiento() {
       // Las máquinas descartadas no cuentan para la programación.
       setMaqs(m.filter(x => (x.estado_inventario ?? '').toUpperCase() !== 'DESCARTADO'));
       setTrabs(t);
-      const ab = await filtro(supabase.from('mantenimientos').select('estado').in('estado', ['en_proceso', 'pendiente_validacion']));
-      const c = { en_proceso: 0, pendiente_validacion: 0 };
-      (ab.data ?? []).forEach((x: { estado: 'en_proceso' | 'pendiente_validacion' }) => { c[x.estado]++; });
-      setAbiertos(c);
+      const ab = await filtro(supabase.from('mantenimientos').select('estado').eq('estado', 'en_proceso'));
+      setAbiertos({ en_proceso: (ab.data ?? []).length });
     } catch (e) { setError(mensajeError(e)); }
   }, [modulo, area, r.desde, r.hasta]);
   useEffect(() => { cargar(); }, [cargar]);
@@ -188,8 +186,8 @@ export default function Mantenimiento() {
       </div>
 
       <div className="accesos">
-        <Link to="/trabajos?e=pendiente_validacion" className={`acceso ${abiertos.pendiente_validacion ? 'alerta' : ''}`}><b>{abiertos.pendiente_validacion}</b> Por validar</Link>
         <Link to="/trabajos?e=en_proceso" className="acceso"><b>{abiertos.en_proceso}</b> En proceso</Link>
+        <Link to="/trabajos?e=completado" className="acceso">Completados</Link>
         <Link to="/historial" className="acceso">Historial y exportación</Link>
       </div>
 

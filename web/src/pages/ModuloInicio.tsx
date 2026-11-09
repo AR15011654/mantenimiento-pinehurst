@@ -46,9 +46,7 @@ export default function ModuloInicio() {
       <div className="acciones-grandes">
         <Link className="btn btn-pri btn-gigante" to={`/escanear${qs}`}>Escanear o buscar máquina</Link>
         <Link className="btn btn-sec btn-gigante" to={`/trabajos${qs}&e=en_proceso`}>En proceso <b>{conteo.en_proceso ?? 0}</b></Link>
-        <Link className="btn btn-sec btn-gigante" to={`/trabajos${qs}&e=pendiente_validacion`}>
-          {perfil === 'tecnico' ? 'Pendientes de validación' : 'Por validar'} <b>{conteo.pendiente_validacion ?? 0}</b>
-        </Link>
+        <Link className="btn btn-sec btn-gigante" to={`/trabajos${qs}&e=completado`}>Completados</Link>
         <Link className="btn btn-sec btn-gigante" to={`/trabajos${qs}&e=programado`}>Programados <b>{conteo.programado ?? 0}</b></Link>
         <Link className="btn btn-sec btn-gigante" to={`/historial${qs}`}>Historial y exportación</Link>
       </div>

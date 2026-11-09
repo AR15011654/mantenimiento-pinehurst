@@ -150,7 +150,7 @@ export default function Trabajo() {
         <section className="tarjeta">
           {devuelto ? (
             <>
-              <Aviso tipo="alerta">El gerente de área devolvió este trabajo. Revise el motivo en el historial y presione Reanudar para continuar.</Aviso>
+              <Aviso tipo="alerta">Este trabajo fue reabierto. Revise el motivo en el historial y presione Reanudar para continuar.</Aviso>
               <button className="btn btn-pri btn-gigante" disabled={ocupado} onClick={() => accion(() => rpc('reanudar_mantenimiento', { p_mantenimiento_id: t.id }), 'Trabajo reanudado. Se registró la nueva hora de inicio.')}>Reanudar trabajo</button>
             </>
           ) : (
@@ -166,7 +166,7 @@ export default function Trabajo() {
                 <input type="file" accept="image/*" capture="environment" onChange={e => { subirFoto(e.target.files?.[0]); e.target.value = ''; }} />
               </label>
               <button className="btn btn-pri btn-gigante" disabled={ocupado || pendientes.length > 0}
-                onClick={() => { if (confirm('¿Finalizar el mantenimiento? El servidor registrará la hora final.')) accion(async () => { await rpc('finalizar_mantenimiento', { p_mantenimiento_id: t.id, p_idempotency_key: claveFin }); setClaveFin(nuevaClave()); }, 'Mantenimiento finalizado. Quedó pendiente de validación del gerente de área.'); }}>
+                onClick={() => { if (confirm('¿Finalizar el mantenimiento? El servidor registrará la hora final.')) accion(async () => { await rpc('finalizar_mantenimiento', { p_mantenimiento_id: t.id, p_idempotency_key: claveFin }); setClaveFin(nuevaClave()); }, 'Mantenimiento finalizado y completado.'); }}>
                 Finalizar mantenimiento
               </button>
               {pendientes.length > 0 && <p className="nota">Hay comentarios sin enviar: envíelos antes de finalizar.</p>}
@@ -181,17 +181,6 @@ export default function Trabajo() {
         </Aviso>
       ))}
 
-      {t.estado === 'pendiente_validacion' && esSupervisor && (
-        <section className="tarjeta">
-          <h2>Validación</h2>
-          <Campo etiqueta="Observación (obligatoria para devolver)"><textarea rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} /></Campo>
-          <div className="fila-botones">
-            <button className="btn btn-pri btn-grande" disabled={ocupado} onClick={() => accion(() => rpc('validar_mantenimiento', { p_mantenimiento_id: t.id, p_resultado: 'aprobado', p_observacion: motivo }), 'Trabajo validado y completado.')}>Validar</button>
-            <button className="btn btn-peligro btn-grande" disabled={ocupado} onClick={() => accion(() => rpc('validar_mantenimiento', { p_mantenimiento_id: t.id, p_resultado: 'devuelto', p_observacion: motivo }), 'Trabajo devuelto al técnico.')}>Devolver con corrección</button>
-          </div>
-        </section>
-      )}
-
       {(t.estado === 'en_proceso' || t.estado === 'programado') && esSupervisor && (
         <details className="tarjeta">
           <summary>Cancelar trabajo</summary>
@@ -204,7 +193,7 @@ export default function Trabajo() {
         <details className="tarjeta">
           <summary>Reabrir (administrador)</summary>
           <Campo etiqueta="Motivo"><textarea rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} /></Campo>
-          <button className="btn btn-sec" disabled={ocupado} onClick={() => accion(() => rpc('reabrir_mantenimiento', { p_mantenimiento_id: t.id, p_motivo: motivo }), 'Trabajo reabierto: vuelve a pendiente de validación.')}>Reabrir</button>
+          <button className="btn btn-sec" disabled={ocupado} onClick={() => accion(() => rpc('reabrir_mantenimiento', { p_mantenimiento_id: t.id, p_motivo: motivo }), 'Trabajo reabierto: vuelve a en proceso.')}>Reabrir</button>
         </details>
       )}
 

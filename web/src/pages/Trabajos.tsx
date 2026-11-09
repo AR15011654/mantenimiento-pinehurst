@@ -4,7 +4,7 @@ import { duracion, ESTADOS, fechaHora, Mantenimiento, mensajeError, supabase, TI
 import { useSesion } from '../sesion';
 import { Aviso, Cargando, Insignia, Titulo } from '../ui';
 
-const PESTANAS = ['en_proceso', 'pendiente_validacion', 'programado', 'completado', 'cancelado'];
+const PESTANAS = ['en_proceso', 'completado', 'cancelado'];
 
 export default function Trabajos() {
   const [params, setParams] = useSearchParams();

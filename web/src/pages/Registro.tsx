@@ -134,7 +134,7 @@ export default function Registro() {
         await rpc('registrar_foto', { p_mantenimiento_id: trabajo.id, p_ruta: ruta, p_tamano: f.blob.size, p_mime: 'image/jpeg' });
         f.subida = true;
       }
-      // Si el gerente lo había devuelto, se reabre el período antes de cerrar.
+      // Si el administrador lo había reabierto, se abre un nuevo período antes de cerrar.
       const per = await supabase.from('mantenimiento_periodos').select('id').eq('mantenimiento_id', trabajo.id).is('fin_en', null);
       if (!per.error && (per.data ?? []).length === 0) await rpc('reanudar_mantenimiento', { p_mantenimiento_id: trabajo.id });
       const r = await rpc<{ folio: number; fin_en: string }>('finalizar_mantenimiento', { p_mantenimiento_id: trabajo.id, p_idempotency_key: claves.current.fin });
@@ -161,7 +161,7 @@ export default function Registro() {
           {resultado.proximo
             ? <p className="hecho-proximo">Próximo mantenimiento: <b>{fecha(resultado.proximo)}</b><br /><span className="nota">Frecuencia {FRECUENCIAS[resultado.frecuencia ?? ''] ?? resultado.frecuencia}</span></p>
             : <p className="nota">Esta máquina no tiene frecuencia de mantenimiento definida; no se calculó el próximo.</p>}
-          <p className="nota">Quedó pendiente de validación del gerente de área.</p>
+          <p className="nota">Mantenimiento completado.</p>
         </div>
         <button className="btn btn-pri btn-gigante centrado" onClick={limpiar}>Registrar otro mantenimiento</button>
         <Link className="btn btn-sec btn-grande" to="/">Volver a los módulos</Link>
@@ -278,7 +278,7 @@ export default function Registro() {
         <button type="button" className="btn btn-link" onClick={limpiar}>Limpiar formulario</button>
       </div>
 
-      <p className="centrado"><Link to={`/m/${modulo.codigo}/panel`}>Ver trabajos y validaciones del módulo</Link></p>
+      <p className="centrado"><Link to={`/m/${modulo.codigo}/panel`}>Ver trabajos del módulo</Link></p>
     </main>
   );
 }
