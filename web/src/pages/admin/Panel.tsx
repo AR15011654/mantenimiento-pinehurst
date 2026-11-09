@@ -27,7 +27,7 @@ export default function Panel() {
       setC({ maq, sinClas, rev, emp, mec, usu });
       const mods = await supabase.from('modulos').select('id, nombre').order('orden');
       setModulos(mods.data ?? []);
-      const t = await supabase.from('mantenimientos').select('modulo_id, estado').in('estado', ['en_proceso', 'pendiente_validacion', 'programado']);
+      const t = await supabase.from('mantenimientos').select('modulo_id, estado').in('estado', ['en_proceso', 'programado']);
       const pe: Record<string, Record<string, number>> = {};
       (t.data ?? []).forEach(r => { const k = r.modulo_id ?? '-'; pe[k] ??= {}; pe[k][r.estado] = (pe[k][r.estado] ?? 0) + 1; });
       setPorEstado(pe);
@@ -50,8 +50,8 @@ export default function Panel() {
       <section className="tarjeta">
         <h2>Trabajos abiertos por módulo</h2>
         <div className="tabla-scroll"><table className="tabla">
-          <thead><tr><th>Módulo</th>{['programado', 'en_proceso', 'pendiente_validacion'].map(e => <th key={e}>{ESTADOS[e]}</th>)}</tr></thead>
-          <tbody>{modulos.map(m => <tr key={m.id}><td>{m.nombre}</td>{['programado', 'en_proceso', 'pendiente_validacion'].map(e => <td key={e}>{porEstado[m.id]?.[e] ?? 0}</td>)}</tr>)}</tbody>
+          <thead><tr><th>Módulo</th>{['programado', 'en_proceso'].map(e => <th key={e}>{ESTADOS[e]}</th>)}</tr></thead>
+          <tbody>{modulos.map(m => <tr key={m.id}><td>{m.nombre}</td>{['programado', 'en_proceso'].map(e => <td key={e}>{porEstado[m.id]?.[e] ?? 0}</td>)}</tr>)}</tbody>
         </table></div>
       </section>
       <section className="acciones-grandes">
