@@ -87,6 +87,11 @@ export type Maquina = {
   ubicacion_id: string | null; ubicacion: string | null; ubicacion_tipo: string | null;
   modulo_id: string | null; modulo: string | null; area_id: string | null; area: string | null; sin_clasificar: boolean;
   origen_archivo: string | null; origen_hoja: string | null; origen_fila: number | null;
+  frecuencia: string | null; ultimo_mantenimiento_en: string | null; proximo_mantenimiento: string | null;
+};
+
+export const FRECUENCIAS: Record<string, string> = {
+  MENSUAL: 'Mensual', BIMENSUAL: 'Bimensual (cada 2 meses)', TRIMESTRAL: 'Trimestral', SEMESTRAL: 'Semestral', ANUAL: 'Anual',
 };
 
 export type Mantenimiento = {

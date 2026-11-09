@@ -160,3 +160,4 @@ textarea { resize: vertical; }
 .contenido.angosto + * , .contenido.angosto .btn-grande { margin-top: 10px; }
 .btn-opcion.activo:disabled { opacity: 1; }
 .tile-nombre { font-size: .78rem; }
+.hecho-proximo { margin-top: 12px !important; padding: 10px; background: var(--info-fondo); border-radius: 8px; color: var(--info); }
