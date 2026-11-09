@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useSesion } from '../sesion';
 import ModuloImagen from '../ModuloImagen';
+import InstalarApp from '../InstalarApp';
 
 const CORTO: Record<string, string> = {
   COSTURA_PD: 'COSTURA Y PD',
@@ -17,6 +18,7 @@ export default function Inicio() {
   if (perfil === 'supervisor' || perfil === 'admin') {
     return (
       <main className="contenido">
+        <InstalarApp />
         <div className="rejilla-app">
           <Link to="/mantenimiento" className="tile">
             <ModuloImagen codigo="MANTENIMIENTO" etiqueta="MANTENIMIENTO" />
@@ -39,6 +41,7 @@ export default function Inicio() {
 
   return (
     <main className="contenido">
+      <InstalarApp />
       {modulos.length === 0 && <p>No tiene módulos asignados. Pida al administrador que le asigne uno.</p>}
       <div className="rejilla-app">
         {modulos.map(m => (
