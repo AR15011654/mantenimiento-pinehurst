@@ -9,7 +9,7 @@ type Mod = { id: string; nombre: string; areas: { id: string; nombre: string }[]
 type Form = { id?: string; email: string; nombre: string; perfil: string; empleadoCodigo: string; puedeOtros: boolean; alcance: Alc[] };
 
 const vacio: Form = { email: '', nombre: '', perfil: 'tecnico', empleadoCodigo: '', puedeOtros: false, alcance: [] };
-const PERFILES: Record<string, string> = { admin: 'Administrador', supervisor: 'Supervisor', tecnico: 'Técnico' };
+const PERFILES: Record<string, string> = { admin: 'Administrador', supervisor: 'Gerente de área', tecnico: 'Técnico' };
 
 async function llamarFuncion(cuerpo: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-usuarios', { body: cuerpo });
