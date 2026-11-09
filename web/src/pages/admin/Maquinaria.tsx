@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { fechaHora, Maquina, mensajeError, rpc, supabase } from '../../lib';
+import { fecha, fechaHora, Maquina, mensajeError, rpc, supabase } from '../../lib';
 import { descargarExcel } from '../../excel';
 import { Aviso, Campo, Titulo } from '../../ui';
 
@@ -66,6 +66,7 @@ export default function Maquinaria() {
       { titulo: 'GRUPO', clave: 'grupo' }, { titulo: 'FABRICANTE', clave: 'fabricante' }, { titulo: 'MODELO', clave: 'modelo' },
       { titulo: 'MODULO', clave: 'modulo', ancho: 28 }, { titulo: 'AREA', clave: 'area' }, { titulo: 'UBICACION', clave: 'ubicacion' }, { titulo: 'PUESTO', clave: 'puesto' },
       { titulo: 'ESTADO INVENTARIO', clave: 'estado_inventario' }, { titulo: 'CONDICION OPERATIVA', clave: 'condicion_operativa' }, { titulo: 'CRITICA', clave: 'es_critica' },
+      { titulo: 'FRECUENCIA', clave: 'frecuencia' }, { titulo: 'PROXIMO MANTENIMIENTO', clave: 'proximo_mantenimiento' },
       { titulo: 'EN REVISION', clave: 'requiere_revision' }, { titulo: 'MOTIVO REVISION', clave: 'motivo_revision', ancho: 50 },
     ], filasAll.map(m => ({ ...m, es_critica: m.es_critica ? 'SÍ' : '', requiere_revision: m.requiere_revision ? 'SÍ' : '' })));
   }
@@ -84,11 +85,11 @@ export default function Maquinaria() {
       {msg && !sel && <Aviso tipo={msg.tipo}>{msg.t}</Aviso>}
       <p className="nota">{total} máquinas · página {pag + 1} de {Math.max(1, Math.ceil(total / POR))}</p>
       <div className="tabla-scroll"><table className="tabla">
-        <thead><tr><th>Asset ID</th><th>QR</th><th>Serie</th><th>Tipo</th><th>Fabricante</th><th>Ubicación</th><th>Área</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Asset ID</th><th>QR</th><th>Serie</th><th>Tipo</th><th>Fabricante</th><th>Ubicación</th><th>Área</th><th>Frecuencia</th><th>Próximo</th><th>Estado</th><th></th></tr></thead>
         <tbody>{filas.map(m => (
           <tr key={m.id} className={sel?.id === m.id ? 'sel' : ''}>
             <td>{m.asset_id}</td><td>{m.qr}</td><td>{m.serie}</td><td>{m.tipo}</td><td>{m.fabricante}</td><td>{m.ubicacion}{m.puesto ? ` / ${m.puesto}` : ''}</td>
-            <td>{m.area ?? m.modulo ?? <i>Sin clasificar</i>}</td><td>{m.estado_inventario}{m.requiere_revision && ' ⚠'}</td>
+            <td>{m.area ?? m.modulo ?? <i>Sin clasificar</i>}</td><td>{m.frecuencia ?? '—'}</td><td>{fecha(m.proximo_mantenimiento)}</td><td>{m.estado_inventario}{m.requiere_revision && ' ⚠'}</td>
             <td><button className="btn btn-link" onClick={() => abrir(m)}>Ver</button></td>
           </tr>
         ))}</tbody>

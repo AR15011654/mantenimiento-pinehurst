@@ -24,6 +24,8 @@ const CAMPOS: Record<Tipo, CampoDef[]> = {
     { clave: 'operacion', nombre: 'Operación (nota)', sugerencias: ['OPERACION'] },
     { clave: 'estilo', nombre: 'Estilo (nota)', sugerencias: ['ESTILO'] },
     { clave: 'observacion', nombre: 'Observación (nota)', sugerencias: ['OBSERVACION'] },
+    { clave: 'frecuencia', nombre: 'Frecuencia de mantenimiento', sugerencias: ['FRECUENCIA DE MANTENIMIENTO', 'FRECUENCIA', 'PERIODICIDAD'] },
+    { clave: 'area', nombre: 'Área', sugerencias: ['AREA'] },
   ],
   personal: [
     { clave: 'codigo', nombre: 'Código de empleado (clave)', requerido: true, sugerencias: ['COD_PERSONAL', 'CODIGO'] },
