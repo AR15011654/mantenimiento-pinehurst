@@ -1,5 +1,15 @@
 // ExcelJS se carga solo cuando se usa (importar/exportar), para que la app abra rápido en el celular.
-const cargarExcelJS = async () => (await import('exceljs')).default;
+const cargarExcelJS = async () => {
+  try { return (await import('exceljs')).default; }
+  catch (e) {
+    // Versión nueva publicada: recargar la página (una vez) para obtener los archivos actuales.
+    if (/dynamically imported module|Importing a module script failed|error loading dynamically/i.test(String((e as Error)?.message ?? e))) {
+      try { if (Date.now() - Number(sessionStorage.getItem('recarga-version') ?? 0) > 60000) { sessionStorage.setItem('recarga-version', String(Date.now())); window.location.reload(); } } catch { window.location.reload(); }
+      throw new Error('Se publicó una versión nueva de la aplicación. La página se está recargando; vuelva a seleccionar el archivo.');
+    }
+    throw e;
+  }
+};
 
 export type Hoja = { nombre: string; encabezados: string[]; filas: { fila: number; celdas: Record<string, unknown> }[] };
 
