@@ -20,6 +20,12 @@ export function recargarPorVersionNueva() {
 }
 window.addEventListener('vite:preloadError', e => { if (recargarPorVersionNueva()) e.preventDefault(); });
 
+// Instalación como app (ícono en la pantalla del teléfono).
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); (window as unknown as { __instalar?: Event }).__instalar = e; window.dispatchEvent(new Event('instalable')); });
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { /* sin instalación */ }); });
+}
+
 async function iniciar() {
   const hash = window.location.hash;
   if (hash.includes('access_token=') || hash.includes('error_description=')) {

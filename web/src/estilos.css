@@ -182,3 +182,8 @@ textarea { resize: vertical; }
 .barra-fondo { flex: 1; background: #eef1f5; border-radius: 6px; height: 16px; overflow: hidden; }
 .barra-valor { height: 100%; background: #1f6fd1; border-radius: 6px; }
 .barra-num { min-width: 48px; text-align: right; font-weight: 600; }
+.instalar { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--borde); border-left: 4px solid #3fbf5f; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+.instalar img { border-radius: 10px; flex: none; }
+.instalar-texto { flex: 1; font-size: .92rem; } .instalar-texto .btn { margin-top: 6px; }
+.instalar-cerrar { border: none; background: none; font-size: 1.1rem; color: var(--suave); cursor: pointer; padding: 6px; }
+.marca::before { content: ''; display: inline-block; width: 22px; height: 22px; margin-right: 8px; vertical-align: -5px; background: url(/icono-192.png) center/cover; border-radius: 5px; }
