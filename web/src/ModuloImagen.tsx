@@ -41,6 +41,26 @@ function Corte() {
   );
 }
 
+function Mantenimiento() {
+  return (
+    <g>
+      <path d="M58 22 a16 16 0 0 0 20 20 L112 76 a6 6 0 0 1 -8 8 L70 50 a16 16 0 0 1 -20 -20 l10 10 l8 -2 l2 -8 Z" fill={CLARO} />
+      <circle cx="112" cy="30" r="14" fill="none" stroke={VERDE} strokeWidth="6" strokeDasharray="7 4" />
+      <circle cx="112" cy="30" r="5" fill={VERDE} />
+    </g>
+  );
+}
+
+function Inventario() {
+  return (
+    <g>
+      <rect x="34" y="44" width="32" height="30" rx="2" fill={AZUL} /><rect x="70" y="44" width="32" height="30" rx="2" fill={CLARO} />
+      <rect x="52" y="12" width="32" height="30" rx="2" fill={CLARO} opacity=".8" /><rect x="106" y="44" width="22" height="30" rx="2" fill={VERDE} />
+      <line x1="34" y1="54" x2="66" y2="54" stroke={FONDO} strokeWidth="2" /><line x1="70" y1="54" x2="102" y2="54" stroke={FONDO} strokeWidth="2" />
+    </g>
+  );
+}
+
 function Generico() {
   return (
     <g>
@@ -51,7 +71,8 @@ function Generico() {
 }
 
 export default function ModuloImagen({ codigo, etiqueta }: { codigo: string; etiqueta: string }) {
-  const Dibujo = codigo === 'COSTURA_PD' ? Costura : codigo === 'SERIGRAFIA_BORDADO_SUBLIMADO' ? Serigrafia : codigo === 'CORTE_BODEGA_STAGING' ? Corte : Generico;
+  const Dibujo = codigo === 'COSTURA_PD' ? Costura : codigo === 'SERIGRAFIA_BORDADO_SUBLIMADO' ? Serigrafia : codigo === 'CORTE_BODEGA_STAGING' ? Corte
+    : codigo === 'MANTENIMIENTO' ? Mantenimiento : codigo === 'INVENTARIO' ? Inventario : Generico;
   return (
     <svg viewBox="0 0 160 120" className="mod-img" role="img" aria-label={etiqueta}>
       <rect width="160" height="120" rx="14" fill={FONDO} />

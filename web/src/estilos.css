@@ -162,3 +162,23 @@ textarea { resize: vertical; }
 .tile-nombre { font-size: .78rem; }
 .hecho-proximo { margin-top: 12px !important; padding: 10px; background: var(--info-fondo); border-radius: 8px; color: var(--info); }
 .btn-link.peligro { color: var(--error); }
+
+/* ---- Inicio de gestión y dashboard ---- */
+.tile.deshabilitado { opacity: .55; cursor: not-allowed; }
+.rejilla-app.chica { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 520px; margin-bottom: 16px; }
+.seccion { margin: 8px 0 10px; }
+.filtros-dash { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
+@media (min-width: 700px) { .filtros-dash { grid-template-columns: repeat(3, 1fr); max-width: 760px; } }
+.accesos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.acceso { background: #fff; border: 1px solid var(--borde); border-radius: 10px; padding: 10px 14px; text-decoration: none; color: var(--texto); font-weight: 600; display: flex; gap: 8px; align-items: center; min-height: 48px; }
+.acceso b { font-size: 1.3rem; color: var(--pri); } .acceso.alerta b { color: var(--alerta); }
+.kpi-btn { font: inherit; text-align: left; cursor: pointer; }
+.kpi.sel { border: 2px solid var(--pri); background: var(--pri-claro); }
+.kpi.malo span { color: var(--error); }
+.tabla td.num { text-align: right; } .tabla td.malo { color: var(--error); font-weight: 700; }
+.barra-linea { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; margin: 4px 0; font-size: .88rem; }
+.barra-etq { color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barra-fila { display: flex; align-items: center; gap: 8px; }
+.barra-fondo { flex: 1; background: #eef1f5; border-radius: 6px; height: 16px; overflow: hidden; }
+.barra-valor { height: 100%; background: #1f6fd1; border-radius: 6px; }
+.barra-num { min-width: 48px; text-align: right; font-weight: 600; }

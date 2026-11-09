@@ -8,6 +8,7 @@ import CambiarClave from './pages/CambiarClave';
 import Inicio from './pages/Inicio';
 import ModuloInicio from './pages/ModuloInicio';
 import Registro from './pages/Registro';
+import Mantenimiento from './pages/Mantenimiento';
 import Escanear from './pages/Escanear';
 import FichaMaquina from './pages/FichaMaquina';
 import Trabajo from './pages/Trabajo';
@@ -20,7 +21,7 @@ import Personal from './pages/admin/Personal';
 import Clasificacion from './pages/admin/Clasificacion';
 import Importacion from './pages/admin/Importacion';
 
-function Protegida({ children, admin }: { children: ReactNode; admin?: boolean }) {
+function Protegida({ children, admin, gestion }: { children: ReactNode; admin?: boolean; gestion?: boolean }) {
   const { auth, sesion, cargando, error, salir, recargar } = useSesion();
   const loc = useLocation();
   if (cargando) return <Cargando />;
@@ -39,6 +40,7 @@ function Protegida({ children, admin }: { children: ReactNode; admin?: boolean }
     );
   }
   if (admin && sesion.usuario?.perfil !== 'admin') return <main className="contenido"><Aviso tipo="error">Sección exclusiva del administrador.</Aviso></main>;
+  if (gestion && sesion.usuario?.perfil === 'tecnico') return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -51,7 +53,7 @@ function Marco({ children }: { children: ReactNode }) {
         <Link to="/" className="marca">Mantenimiento <b>Pinehurst</b></Link>
         {auth && sesion?.autorizado && (
           <div className="barra-der">
-            <span className="quien">{sesion.usuario?.nombre || sesion.usuario?.email} · {perfil === 'admin' ? 'Administrador' : perfil === 'supervisor' ? 'Supervisor' : 'Técnico'}</span>
+            <span className="quien">{sesion.usuario?.nombre || sesion.usuario?.email} · {perfil === 'admin' ? 'Administrador' : perfil === 'supervisor' ? 'Gerente de área' : 'Técnico'}</span>
             <button className="btn btn-link" onClick={salir}>Salir</button>
           </div>
         )}
@@ -59,10 +61,20 @@ function Marco({ children }: { children: ReactNode }) {
       {children}
       {auth && sesion?.autorizado && (
         <nav className="menu-abajo">
-          <NavLink to="/" end><span aria-hidden="true">▦</span>Módulos</NavLink>
-          <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Trabajos</NavLink>
-          <NavLink to="/historial"><span aria-hidden="true">⏱</span>Historial</NavLink>
-          {perfil === 'admin' && <NavLink to="/admin"><span aria-hidden="true">⚙</span>Admin</NavLink>}
+          {perfil === 'tecnico' ? (
+            <>
+              <NavLink to="/" end><span aria-hidden="true">▦</span>Módulos</NavLink>
+              <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Mis trabajos</NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink to="/" end><span aria-hidden="true">▦</span>Inicio</NavLink>
+              <NavLink to="/mantenimiento"><span aria-hidden="true">📊</span>Mantenimiento</NavLink>
+              <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Trabajos</NavLink>
+              {perfil === 'admin' ? <NavLink to="/admin"><span aria-hidden="true">⚙</span>Admin</NavLink>
+                : <NavLink to="/historial"><span aria-hidden="true">⏱</span>Historial</NavLink>}
+            </>
+          )}
         </nav>
       )}
     </div>
@@ -87,7 +99,8 @@ export default function App() {
             <Route path="/maquina/:id" element={<Protegida><FichaMaquina /></Protegida>} />
             <Route path="/trabajo/:id" element={<Protegida><Trabajo /></Protegida>} />
             <Route path="/trabajos" element={<Protegida><Trabajos /></Protegida>} />
-            <Route path="/historial" element={<Protegida><Historial /></Protegida>} />
+            <Route path="/historial" element={<Protegida gestion><Historial /></Protegida>} />
+            <Route path="/mantenimiento" element={<Protegida gestion><Mantenimiento /></Protegida>} />
             <Route path="/admin" element={<Protegida admin><Panel /></Protegida>} />
             <Route path="/admin/usuarios" element={<Protegida admin><Usuarios /></Protegida>} />
             <Route path="/admin/maquinaria" element={<Protegida admin><Maquinaria /></Protegida>} />
