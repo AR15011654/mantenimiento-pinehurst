@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { descargarExcel, Hoja, leerLibro, textoCelda } from '../../excel';
 import { rpc } from '../../lib';
 import { Aviso, Campo, Titulo } from '../../ui';
+import HistorialImportaciones from './HistorialImportaciones';
 
 type Tipo = 'maquinaria' | 'personal';
 type CampoDef = { clave: string; nombre: string; requerido?: boolean; fecha?: boolean; sugerencias: string[] };
@@ -203,6 +204,8 @@ export default function Importacion() {
           <button className="btn btn-sec" onClick={() => descargarObservaciones(final)}>Descargar errores y revisiones</button>
         </section>
       )}
+
+      <HistorialImportaciones recarga={final ? 1 : 0} />
     </main>
   );
 }
