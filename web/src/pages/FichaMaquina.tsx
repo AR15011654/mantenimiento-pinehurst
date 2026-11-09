@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { duracion, fecha, fechaHora, Maquina, Mantenimiento, mensajeError, nuevaClave, rpc, supabase, TIPOS } from '../lib';
+import { duracion, fecha, fechaHora, FRECUENCIAS, Maquina, Mantenimiento, mensajeError, nuevaClave, rpc, supabase, TIPOS } from '../lib';
 import { useSesion } from '../sesion';
 import { Aviso, Cargando, Campo, Dato, Insignia, Titulo } from '../ui';
 import LectorQR from '../LectorQR';
@@ -74,6 +74,9 @@ export default function FichaMaquina() {
         <Dato k="Estado inventario" v={m.estado_inventario} />
         <Dato k="Condición operativa" v={m.condicion_operativa.replace(/_/g, ' ')} />
         <Dato k="Compra / registro" v={fecha(m.fecha_compra_registro)} />
+        <Dato k="Frecuencia de mantenimiento" v={m.frecuencia ? FRECUENCIAS[m.frecuencia] ?? m.frecuencia : 'Sin definir'} />
+        <Dato k="Último mantenimiento" v={fechaHora(m.ultimo_mantenimiento_en)} />
+        <Dato k="Próximo mantenimiento" v={fecha(m.proximo_mantenimiento)} />
       </dl>
 
       {abiertos.length > 0 && (

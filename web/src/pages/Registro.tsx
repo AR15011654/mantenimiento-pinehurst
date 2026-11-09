@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { fechaHora, Maquina, mensajeError, nuevaClave, rpc, supabase } from '../lib';
+import { fecha, fechaHora, FRECUENCIAS, Maquina, mensajeError, nuevaClave, rpc, supabase } from '../lib';
 import { useModulo, useSesion } from '../sesion';
 import { Aviso } from '../ui';
 import LectorQR from '../LectorQR';
@@ -8,7 +8,7 @@ import LectorQR from '../LectorQR';
 type Mecanico = { encontrado: boolean; id?: string; codigo?: string; nombre?: string; autorizado?: boolean; mensaje: string };
 type Trabajo = { id: string; folio: number; inicio_en: string | null; retomado?: boolean };
 type Foto = { clave: string; blob: Blob; url: string; subida: boolean };
-type Resultado = { folio: number; fin_en: string; maquina: string; mecanico: string };
+type Resultado = { folio: number; fin_en: string; maquina: string; mecanico: string; frecuencia: string | null; proximo: string | null };
 
 async function reducirImagen(f: File): Promise<Blob> {
   const img = await createImageBitmap(f);
@@ -138,7 +138,10 @@ export default function Registro() {
       const per = await supabase.from('mantenimiento_periodos').select('id').eq('mantenimiento_id', trabajo.id).is('fin_en', null);
       if (!per.error && (per.data ?? []).length === 0) await rpc('reanudar_mantenimiento', { p_mantenimiento_id: trabajo.id });
       const r = await rpc<{ folio: number; fin_en: string }>('finalizar_mantenimiento', { p_mantenimiento_id: trabajo.id, p_idempotency_key: claves.current.fin });
-      setResultado({ folio: r.folio, fin_en: r.fin_en, maquina: nombreMaquina(maquina), mecanico: mec.nombre ?? '' });
+      // El servidor ya calculó el próximo mantenimiento (cierre + frecuencia de la máquina).
+      const px = await supabase.from('maquinas').select('frecuencia, proximo_mantenimiento').eq('id', maquina.id).maybeSingle();
+      setResultado({ folio: r.folio, fin_en: r.fin_en, maquina: nombreMaquina(maquina), mecanico: mec.nombre ?? '',
+        frecuencia: px.data?.frecuencia ?? null, proximo: px.data?.proximo_mantenimiento ?? null });
       window.scrollTo(0, 0);
     } catch (e) { setErrFin(mensajeError(e) + ' Nada se perdió: presione de nuevo "Finalizar mantenimiento".'); }
     finally { setFinalizando(false); }
@@ -155,6 +158,9 @@ export default function Registro() {
           <p>Trabajo #{resultado.folio} · {resultado.maquina}</p>
           <p>Mecánico: {resultado.mecanico}</p>
           <p className="hecho-hora">Cerrado el {fechaHora(resultado.fin_en)}</p>
+          {resultado.proximo
+            ? <p className="hecho-proximo">Próximo mantenimiento: <b>{fecha(resultado.proximo)}</b><br /><span className="nota">Frecuencia {FRECUENCIAS[resultado.frecuencia ?? ''] ?? resultado.frecuencia}</span></p>
+            : <p className="nota">Esta máquina no tiene frecuencia de mantenimiento definida; no se calculó el próximo.</p>}
           <p className="nota">Quedó pendiente de validación del supervisor.</p>
         </div>
         <button className="btn btn-pri btn-gigante centrado" onClick={limpiar}>Registrar otro mantenimiento</button>
@@ -197,7 +203,8 @@ export default function Registro() {
         <div className="campo">
           <span className="campo-etiqueta">MÁQUINA</span>
           <div className="solo-lectura">
-            {maquina ? <><b>{nombreMaquina(maquina)}</b><br /><span className="nota">{maquina.ubicacion ?? 'Sin ubicación'}{maquina.puesto ? ` / ${maquina.puesto}` : ''} · {maquina.area ?? 'Sin área'}</span></> : '—'}
+            {maquina ? <><b>{nombreMaquina(maquina)}</b><br /><span className="nota">{maquina.ubicacion ?? 'Sin ubicación'}{maquina.puesto ? ` / ${maquina.puesto}` : ''} · {maquina.area ?? 'Sin área'}</span>
+              <br /><span className="nota">Frecuencia: {maquina.frecuencia ? FRECUENCIAS[maquina.frecuencia] ?? maquina.frecuencia : 'sin definir'} · Próximo: {fecha(maquina.proximo_mantenimiento)}</span></> : '—'}
           </div>
         </div>
 
