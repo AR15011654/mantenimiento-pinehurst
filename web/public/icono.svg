@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b2a4a"/>
+  <g transform="translate(256 236)">
+    <g fill="#3fbf5f">
+      <circle r="118"/>
+      <g id="d"><rect x="-26" y="-150" width="52" height="54" rx="8"/></g>
+      <use href="#d" transform="rotate(45)"/><use href="#d" transform="rotate(90)"/><use href="#d" transform="rotate(135)"/>
+      <use href="#d" transform="rotate(180)"/><use href="#d" transform="rotate(225)"/><use href="#d" transform="rotate(270)"/><use href="#d" transform="rotate(315)"/>
+    </g>
+    <circle r="78" fill="#0b2a4a"/>
+    <g transform="rotate(-45)">
+      <rect x="-20" y="-40" width="40" height="190" rx="18" fill="#ffffff"/>
+      <path d="M-58 -78 a62 62 0 1 0 116 0 l-26 0 l0 40 l-64 0 l0 -40 Z" fill="#ffffff" transform="translate(0 -40)"/>
+    </g>
+  </g>
+  <rect x="96" y="410" width="320" height="56" rx="14" fill="#1f6fd1"/>
+  <text x="256" y="450" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="38" font-weight="700" fill="#fff">MANTTO</text>
+</svg>
