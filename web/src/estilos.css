@@ -161,3 +161,4 @@ textarea { resize: vertical; }
 .btn-opcion.activo:disabled { opacity: 1; }
 .tile-nombre { font-size: .78rem; }
 .hecho-proximo { margin-top: 12px !important; padding: 10px; background: var(--info-fondo); border-radius: 8px; color: var(--info); }
+.btn-link.peligro { color: var(--error); }
