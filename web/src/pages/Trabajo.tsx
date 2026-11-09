@@ -150,7 +150,7 @@ export default function Trabajo() {
         <section className="tarjeta">
           {devuelto ? (
             <>
-              <Aviso tipo="alerta">El supervisor devolvió este trabajo. Revise el motivo en el historial y presione Reanudar para continuar.</Aviso>
+              <Aviso tipo="alerta">El gerente de área devolvió este trabajo. Revise el motivo en el historial y presione Reanudar para continuar.</Aviso>
               <button className="btn btn-pri btn-gigante" disabled={ocupado} onClick={() => accion(() => rpc('reanudar_mantenimiento', { p_mantenimiento_id: t.id }), 'Trabajo reanudado. Se registró la nueva hora de inicio.')}>Reanudar trabajo</button>
             </>
           ) : (
@@ -166,7 +166,7 @@ export default function Trabajo() {
                 <input type="file" accept="image/*" capture="environment" onChange={e => { subirFoto(e.target.files?.[0]); e.target.value = ''; }} />
               </label>
               <button className="btn btn-pri btn-gigante" disabled={ocupado || pendientes.length > 0}
-                onClick={() => { if (confirm('¿Finalizar el mantenimiento? El servidor registrará la hora final.')) accion(async () => { await rpc('finalizar_mantenimiento', { p_mantenimiento_id: t.id, p_idempotency_key: claveFin }); setClaveFin(nuevaClave()); }, 'Mantenimiento finalizado. Quedó pendiente de validación del supervisor.'); }}>
+                onClick={() => { if (confirm('¿Finalizar el mantenimiento? El servidor registrará la hora final.')) accion(async () => { await rpc('finalizar_mantenimiento', { p_mantenimiento_id: t.id, p_idempotency_key: claveFin }); setClaveFin(nuevaClave()); }, 'Mantenimiento finalizado. Quedó pendiente de validación del gerente de área.'); }}>
                 Finalizar mantenimiento
               </button>
               {pendientes.length > 0 && <p className="nota">Hay comentarios sin enviar: envíelos antes de finalizar.</p>}
