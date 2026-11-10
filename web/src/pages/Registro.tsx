@@ -4,11 +4,13 @@ import { fecha, fechaHora, FRECUENCIAS, Maquina, mensajeError, nuevaClave, rpc, 
 import { useModulo, useSesion } from '../sesion';
 import { Aviso } from '../ui';
 import LectorQR from '../LectorQR';
+import { Articulo, cargarArticulos, num, SelectorArticulo } from '../inventario';
 
 type Mecanico = { encontrado: boolean; id?: string; codigo?: string; nombre?: string; autorizado?: boolean; mensaje: string };
 type Trabajo = { id: string; folio: number; inicio_en: string | null; retomado?: boolean };
 type Foto = { clave: string; blob: Blob; url: string; subida: boolean };
 type Doc = { clave: string; blob: Blob; nombre: string; mime: string; ext: string; url: string; subido: boolean };
+type Repuesto = { clave: string; articulo: Articulo; cantidad: number; registrado: boolean };
 type Resultado = { folio: number; fin_en: string; maquina: string; mecanico: string; frecuencia: string | null; proximo: string | null };
 
 async function reducirImagen(f: File): Promise<Blob> {
@@ -54,6 +56,12 @@ export default function Registro() {
   const [costo, setCosto] = useState('');
   const [moneda, setMoneda] = useState<'USD' | 'HNL'>('USD');
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [inventario, setInventario] = useState<Articulo[]>([]);
+  const [repAbierto, setRepAbierto] = useState(false);
+  const [repuestos, setRepuestos] = useState<Repuesto[]>([]);
+  const [repArt, setRepArt] = useState<Articulo | null>(null);
+  const [repCant, setRepCant] = useState('');
+  const [errRep, setErrRep] = useState<string | null>(null);
   const claves = useRef({ inicio: nuevaClave(), comentario: nuevaClave(), fin: nuevaClave() });
 
   function limpiar() {
@@ -62,9 +70,28 @@ export default function Registro() {
     setCodMec(soloPropio ? sesion?.empleado?.codigo ?? '' : ''); setMec(null); setErrMec(null);
     setTipo(''); setTrabajo(null); setErrInicio(null); setComentario(''); setComGuardado(''); setFotos([]);
     docs.forEach(d => URL.revokeObjectURL(d.url)); setExterno(''); setProveedor(''); setCosto(''); setMoneda('USD'); setDocs([]);
+    setRepAbierto(false); setRepuestos([]); setRepArt(null); setRepCant(''); setErrRep(null);
     setErrFin(null); setResultado(null);
     claves.current = { inicio: nuevaClave(), comentario: nuevaClave(), fin: nuevaClave() };
     window.scrollTo(0, 0);
+  }
+
+  // Repuestos del inventario del módulo (si tiene catálogo).
+  const cargarInventario = useCallback(async () => {
+    if (!modulo) return;
+    try { setInventario(await cargarArticulos(modulo.id)); } catch { setInventario([]); }
+  }, [modulo]);
+  useEffect(() => { cargarInventario(); }, [cargarInventario]);
+
+  function agregarRepuesto() {
+    setErrRep(null);
+    const cant = Number(repCant.replace(',', '.'));
+    if (!repArt) { setErrRep('Elija el repuesto.'); return; }
+    if (!repCant.trim() || !Number.isFinite(cant) || cant <= 0) { setErrRep('Escriba la cantidad.'); return; }
+    const ya = repuestos.filter(r => r.articulo.id === repArt.id && !r.registrado).reduce((s2, r) => s2 + r.cantidad, 0);
+    if (ya + cant > repArt.existencia) { setErrRep(`Solo hay ${num(repArt.existencia)} en existencia de ${repArt.codigo}.`); return; }
+    setRepuestos(rs => [...rs, { clave: nuevaClave(), articulo: repArt, cantidad: cant, registrado: false }]);
+    setRepArt(null); setRepCant('');
   }
 
   // 1. Máquina
@@ -165,6 +192,14 @@ export default function Registro() {
         await rpc('registrar_foto', { p_mantenimiento_id: trabajo.id, p_ruta: ruta, p_tamano: f.blob.size, p_mime: 'image/jpeg' });
         f.subida = true;
       }
+      // Repuestos usados: cada uno es una salida del inventario ligada a este trabajo.
+      for (const r of repuestos) {
+        if (r.registrado) continue;
+        await rpc('inv_registrar_salida', { p_articulo_id: r.articulo.id, p_cantidad: r.cantidad, p_codigo_empleado: null, p_maquina_id: null,
+          p_mantenimiento_id: trabajo.id, p_observacion: null, p_idempotency_key: r.clave });
+        r.registrado = true;
+      }
+      if (repuestos.length) { setRepuestos(rs => [...rs]); cargarInventario(); }
       if (externo === 'si') {
         await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim(), p_costo: monto, p_moneda: moneda });
         for (const d of docs) {
@@ -309,6 +344,44 @@ export default function Registro() {
             </div>
           )}
         </div>
+
+        {inventario.length > 0 && (
+          <>
+            <button type="button" aria-expanded={repAbierto || repuestos.length > 0}
+              className={`btn btn-opcion btn-externo ${repAbierto || repuestos.length > 0 ? 'activo' : ''}`}
+              onClick={() => setRepAbierto(!repAbierto)}>
+              <span>REPUESTOS USADOS{repuestos.length ? ` (${repuestos.length})` : ''}</span><span aria-hidden="true">{repAbierto ? '▲' : '▼'}</span>
+            </button>
+            {repAbierto && (
+              <div className="bloque-externo">
+                <div className="campo">
+                  <span className="campo-etiqueta">REPUESTO</span>
+                  <SelectorArticulo articulos={inventario} elegido={repArt} onElegir={setRepArt} mostrarSinExistencia={false} />
+                </div>
+                <div className="campo">
+                  <span className="campo-etiqueta">CANTIDAD</span>
+                  <div className="rep-agregar">
+                    <input value={repCant} inputMode="decimal" placeholder="0" onChange={e => setRepCant(e.target.value)} />
+                    <button type="button" className="btn btn-pri" onClick={agregarRepuesto}>Agregar</button>
+                  </div>
+                </div>
+                {errRep && <Aviso tipo="error">{errRep}</Aviso>}
+                <span className="nota">Al finalizar se descuentan del inventario y quedan ligados a esta máquina y a este trabajo.</span>
+              </div>
+            )}
+            {repuestos.length > 0 && (
+              <div className="lista">
+                {repuestos.map(r => (
+                  <div key={r.clave} className="rep-linea">
+                    <span><b>{num(r.cantidad)}</b> × {r.articulo.codigo} · {r.articulo.descripcion}{r.registrado ? ' ✓' : ''}</span>
+                    {!r.registrado && <button type="button" className="btn btn-link" aria-label="Quitar repuesto"
+                      onClick={() => setRepuestos(rs => rs.filter(x => x.clave !== r.clave))}>✕</button>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         <button type="button" aria-expanded={externo === 'si'}
           className={`btn btn-opcion btn-externo ${externo === 'si' ? 'activo' : ''}`}

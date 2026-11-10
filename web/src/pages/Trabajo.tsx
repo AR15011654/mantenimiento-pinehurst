@@ -9,13 +9,14 @@ type Comentario = { id: string; texto: string; usuario_id: string; creado_en: st
 type Foto = { id: string; ruta: string; creado_en: string; url?: string };
 type Externo = { proveedor: string; costo: number; moneda: string; actualizado_en: string };
 type Documento = { id: string; ruta: string; nombre_original: string | null; tipo_mime: string | null; creado_en: string; url?: string };
+type RepUsado = { id: number; cantidad: number; costo_total: number | null; articulo: { codigo: string; descripcion: string } | null };
 type Periodo = { id: number; inicio_en: string; fin_en: string | null };
 type Pendiente = { clave: string; texto: string; error?: string; enviando?: boolean };
 
 const NOMBRE_EVENTO: Record<string, string> = {
   iniciado: 'Inicio', comentario: 'Comentario', foto: 'Foto', finalizado: 'Finalizado', validado: 'Validado',
   devuelto: 'Devuelto al técnico', reanudado: 'Reanudado', cancelado: 'Cancelado', reabierto: 'Reabierto',
-  servicio_externo: 'Servicio externo', documento: 'Cotización o factura',
+  servicio_externo: 'Servicio externo', repuesto: 'Repuesto usado', documento: 'Cotización o factura',
 };
 
 async function reducirImagen(f: File): Promise<Blob> {
@@ -38,6 +39,7 @@ export default function Trabajo() {
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [externo, setExterno] = useState<Externo | null>(null);
   const [docs, setDocs] = useState<Documento[]>([]);
+  const [reps, setReps] = useState<RepUsado[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -56,14 +58,16 @@ export default function Trabajo() {
       if (r.error) throw r.error;
       if (!r.data) { setError('El trabajo no existe o no tiene permiso para verlo.'); return; }
       setT(r.data as Mantenimiento);
-      const [ev, co, fo, pe, se, dc] = await Promise.all([
+      const [ev, co, fo, pe, se, dc, rp] = await Promise.all([
         supabase.from('mantenimiento_eventos').select('*').eq('mantenimiento_id', id).order('id'),
         supabase.from('mantenimiento_comentarios').select('*').eq('mantenimiento_id', id).order('creado_en'),
         supabase.from('mantenimiento_fotos').select('*').eq('mantenimiento_id', id).order('creado_en'),
         supabase.from('mantenimiento_periodos').select('*').eq('mantenimiento_id', id).order('id'),
         supabase.from('mantenimiento_servicio_externo').select('*').eq('mantenimiento_id', id).maybeSingle(),
         supabase.from('mantenimiento_documentos').select('*').eq('mantenimiento_id', id).order('creado_en'),
+        supabase.from('inv_movimientos').select('id, cantidad, costo_total, articulo:inv_articulos(codigo, descripcion)').eq('mantenimiento_id', id).eq('tipo', 'salida').order('id'),
       ]);
+      setReps((rp.data ?? []) as unknown as RepUsado[]);
       setExterno((se.data ?? null) as Externo | null);
       const ds = (dc.data ?? []) as Documento[];
       if (ds.length) {
@@ -209,6 +213,17 @@ export default function Trabajo() {
           <Campo etiqueta="Motivo"><textarea rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} /></Campo>
           <button className="btn btn-sec" disabled={ocupado} onClick={() => accion(() => rpc('reabrir_mantenimiento', { p_mantenimiento_id: t.id, p_motivo: motivo }), 'Trabajo reabierto: vuelve a en proceso.')}>Reabrir</button>
         </details>
+      )}
+
+      {reps.length > 0 && (
+        <section className="tarjeta">
+          <h2>Repuestos usados</h2>
+          <ul className="lista">{reps.map(r => (
+            <li key={r.id}><b>{Number(r.cantidad).toLocaleString('es-HN')}</b> × {r.articulo?.codigo} · {r.articulo?.descripcion}
+              <span className="nota"> · {r.costo_total === null ? 'sin precio' : '$ ' + Number(r.costo_total).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</span></li>
+          ))}</ul>
+          {reps.some(r => r.costo_total !== null) && <p className="nota">Total: $ {reps.reduce((s, r) => s + Number(r.costo_total ?? 0), 0).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>}
+        </section>
       )}
 
       {externo && (
