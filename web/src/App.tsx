@@ -11,6 +11,7 @@ import Registro from './pages/Registro';
 import Area from './pages/Area';
 import Inventario from './pages/Inventario';
 import Mantenimiento from './pages/Mantenimiento';
+import { SelectorIdioma } from './idioma';
 import Escanear from './pages/Escanear';
 import FichaMaquina from './pages/FichaMaquina';
 import Trabajo from './pages/Trabajo';
@@ -53,12 +54,15 @@ function Marco({ children }: { children: ReactNode }) {
     <div className="marco">
       <header className="barra">
         <Link to="/" className="marca">Mantenimiento <b>Pinehurst</b></Link>
+        <div className="barra-der">
+          <SelectorIdioma />
         {auth && sesion?.autorizado && (
-          <div className="barra-der">
+          <>
             <span className="quien">{sesion.usuario?.nombre || sesion.usuario?.email} · {perfil === 'admin' ? 'Administrador' : perfil === 'supervisor' ? 'Gerente de área' : 'Técnico'}</span>
             <button className="btn btn-link" onClick={salir}>Salir</button>
-          </div>
+          </>
         )}
+        </div>
       </header>
       {children}
       {auth && sesion?.autorizado && (

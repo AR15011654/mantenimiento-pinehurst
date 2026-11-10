@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { supabase } from './lib';
 import App from './App';
+import { iniciarTraduccion } from './idioma';
 import './estilos.css';
 
 // Los enlaces de invitación y de recuperación llegan como #access_token=...&type=invite.
@@ -37,5 +38,6 @@ async function iniciar() {
       (error ? `#/entrar?error=${encodeURIComponent(error)}` : (tipo === 'invite' || tipo === 'recovery') ? '#/cambiar-clave' : '#/'));
   }
   ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+  iniciarTraduccion();
 }
 iniciar();

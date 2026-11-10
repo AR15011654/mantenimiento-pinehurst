@@ -226,3 +226,7 @@ button.volver { background: none; border: none; cursor: pointer; font: inherit; 
 .est-stock.comprar { background: #fde8e8; color: #c62828; } .est-stock.abastecido { background: #e3f4e9; color: #1d7a46; }
 .est-stock.exceso { background: #fff4d6; color: #8a5a00; } .est-stock.sin_consumo { background: #eef1f5; color: #5b6878; }
 .inv-der { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+/* Selector de idioma */
+.idioma { display: inline-flex; border: 1px solid rgba(255,255,255,.5); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+.idioma button { background: none; border: none; color: #fff; font: inherit; font-size: .78rem; font-weight: 700; padding: 3px 9px; cursor: pointer; opacity: .75; }
+.idioma button.activo { background: #fff; color: var(--pri); opacity: 1; }
