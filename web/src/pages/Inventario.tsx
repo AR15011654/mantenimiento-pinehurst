@@ -172,13 +172,13 @@ function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
       {tipo === 'salida' && (
         <div className="campo">
-          <span className="campo-etiqueta">QR MÁQUINA (opcional)</span>
+          <span className="campo-etiqueta">MÁQUINA · QR o código de barras (opcional)</span>
           <div className="campo-qr">
             <input value={qr} placeholder="Escanee o escriba el código" autoCapitalize="characters"
               onChange={e => { setQr(e.target.value); setMaquina(null); setErrMaq(null); }}
               onBlur={() => { if (qr.trim() && !maquina) buscarMaquina(qr); }}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarMaquina(qr); } }} />
-            <LectorQR icono texto="Escanear QR de la máquina" onLeido={t => { setQr(t); buscarMaquina(t); }} />
+            <LectorQR icono texto="Escanear código de la máquina" onLeido={t => { setQr(t); buscarMaquina(t); }} />
           </div>
           {maquina && <div className="ok-linea">✓ {[maquina.tipo, maquina.fabricante, maquina.modelo].filter(Boolean).join(' · ') || maquina.asset_id} · {maquina.area ?? ''}</div>}
           {errMaq && <Aviso tipo="error">{errMaq}</Aviso>}
@@ -202,7 +202,10 @@ function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 
       )}
       <div className="campo">
         <span className="campo-etiqueta">CÓDIGO EMPLEADO<span className="req">*</span></span>
-        <input value={codEmp} inputMode="numeric" disabled={soloPropio} placeholder="Código del empleado" onChange={e => setCodEmp(e.target.value)} />
+        <div className="campo-qr">
+          <input value={codEmp} inputMode="numeric" disabled={soloPropio} placeholder="Escanee el gafete o escriba el código" onChange={e => setCodEmp(e.target.value)} />
+          <LectorQR icono texto="Escanear gafete del empleado" disabled={soloPropio} onLeido={t => setCodEmp(t)} />
+        </div>
       </div>
       <div className="campo">
         <span className="campo-etiqueta">OBSERVACIÓN</span>
