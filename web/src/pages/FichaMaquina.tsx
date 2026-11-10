@@ -72,7 +72,7 @@ export default function FichaMaquina() {
         <Dato k="Modelo" v={m.modelo} /><Dato k="Grupo" v={m.grupo} />
         <Dato k="Ubicación / línea" v={m.ubicacion} /><Dato k="Puesto" v={m.puesto} />
         <Dato k="Estado inventario" v={m.estado_inventario} />
-        <Dato k="Condición operativa" v={m.condicion_operativa.replace(/_/g, ' ')} />
+        <Dato k="Condición operativa" v={(m.condicion_operativa ?? '').replace(/_/g, ' ')} />
         <Dato k="Compra / registro" v={fecha(m.fecha_compra_registro)} />
         <Dato k="Frecuencia de mantenimiento" v={m.frecuencia ? FRECUENCIAS[m.frecuencia] ?? m.frecuencia : 'Sin definir'} />
         <Dato k="Último mantenimiento" v={fechaHora(m.ultimo_mantenimiento_en)} />
