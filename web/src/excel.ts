@@ -11,6 +11,25 @@ const cargarExcelJS = async () => {
   }
 };
 
+/** Normaliza un .xlsx válido pero no estándar: rutas "/xl/..." en las relaciones y prefijos de espacio de nombres. */
+async function repararXlsx(buf: ArrayBuffer): Promise<ArrayBuffer> {
+  const JSZip = (await import('jszip')).default;
+  const zip = await JSZip.loadAsync(buf);
+  for (const nombre of Object.keys(zip.files)) {
+    if (zip.files[nombre].dir || !/\.(rels|xml)$/.test(nombre)) continue;
+    let x = (await zip.file(nombre)!.async('string')).replace(/^\uFEFF/, '');
+    if (nombre.endsWith('.rels')) {
+      const base = nombre.replace(/_rels\/[^/]+$/, ''); // carpeta del archivo dueño de las relaciones
+      x = x.replace(/Target="\/([^"]*)"/g, (_, t: string) => `Target="${base && t.startsWith(base) ? t.slice(base.length) : t}"`);
+    } else {
+      const m = x.match(/<(\w+):(workbook|worksheet|sst|styleSheet)\b[^>]*xmlns:\1="http:\/\/schemas\.openxmlformats\.org\/spreadsheetml\/2006\/main"/);
+      if (m) x = x.replace(new RegExp(`<(/?)${m[1]}:`, 'g'), '<$1').replace(new RegExp(`xmlns:${m[1]}=`, 'g'), 'xmlns=');
+    }
+    zip.file(nombre, x);
+  }
+  return zip.generateAsync({ type: 'arraybuffer' });
+}
+
 export type Hoja = { nombre: string; encabezados: string[]; filas: { fila: number; celdas: Record<string, unknown> }[] };
 
 /** Lee todas las hojas. Conserva el valor crudo de cada celda; la conversión a texto la hace aTexto(). */
@@ -19,8 +38,14 @@ export async function leerLibro(archivo: File): Promise<{ hojas: Hoja[]; hash: s
   const hashBuf = await crypto.subtle.digest('SHA-256', buf);
   const hash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
   const ExcelJS = await cargarExcelJS();
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf);
+  let wb = new ExcelJS.Workbook();
+  try { await wb.xlsx.load(buf); }
+  catch {
+    // Algunos programas guardan el Excel con rutas absolutas y prefijos (<x:worksheet>) que ExcelJS no entiende.
+    // Excel los abre bien; aquí se normalizan y se vuelve a leer.
+    wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await repararXlsx(buf));
+  }
   const hojas: Hoja[] = [];
   wb.eachSheet(ws => {
     const encabezados: string[] = [];
