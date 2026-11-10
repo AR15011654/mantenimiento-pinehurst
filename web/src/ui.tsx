@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ESTADOS } from './lib';
 
 export function Aviso({ tipo, children, onReintentar }: { tipo: 'ok' | 'error' | 'info' | 'alerta'; children: ReactNode; onReintentar?: () => void }) {
@@ -32,6 +33,21 @@ export function Dato({ k, v }: { k: string; v: ReactNode }) {
   return <div className="dato"><dt>{k}</dt><dd>{v === null || v === undefined || v === '' ? '—' : v}</dd></div>;
 }
 
-export function Titulo({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
-  return <header className="titulo"><h1>{children}</h1>{sub && <p className="sub">{sub}</p>}</header>;
+/** Flecha para regresar a la pantalla anterior (o al inicio si se abrió directo). */
+export function Volver() {
+  const navigate = useNavigate();
+  const regresar = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1); else navigate('/');
+  };
+  return <button type="button" className="volver" aria-label="Regresar" title="Regresar" onClick={regresar}>←</button>;
+}
+
+export function Titulo({ children, sub, sinVolver }: { children: ReactNode; sub?: ReactNode; sinVolver?: boolean }) {
+  return (
+    <header className="titulo">
+      <div className="titulo-fila">{!sinVolver && <Volver />}<h1>{children}</h1></div>
+      {sub && <p className="sub">{sub}</p>}
+    </header>
+  );
 }

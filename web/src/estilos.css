@@ -220,3 +220,5 @@ textarea { resize: vertical; }
 .res-imp { margin-top: 10px; }
 .rep-linea { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; background: #fff; border: 1px solid var(--borde); border-radius: 8px; }
 .rep-agregar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.titulo-fila { display: flex; align-items: center; gap: 8px; }
+button.volver { background: none; border: none; cursor: pointer; font: inherit; font-size: 1.6rem; }
