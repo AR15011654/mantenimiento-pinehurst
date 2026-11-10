@@ -61,7 +61,7 @@ export default function Inventario() {
       {articulos && pestana === 'existencias' && <Existencias articulos={activos} nombre={nombre} />}
       {articulos && pestana === 'entrada' && <Movimiento tipo="entrada" articulos={activos} moduloId={modulo.id} onHecho={recargar} />}
       {articulos && pestana === 'salida' && <Movimiento tipo="salida" articulos={activos} moduloId={modulo.id} onHecho={recargar} />}
-      {pestana === 'movimientos' && <Movimientos moduloId={modulo.id} nombre={nombre} />}
+      {pestana === 'movimientos' && <Movimientos moduloId={modulo.id} nombre={nombre} esAdmin={esAdmin} onCambio={recargar} />}
       {articulos && pestana === 'analisis' && gestion && <Analisis articulos={activos} moduloId={modulo.id} nombre={nombre} />}
       {articulos && pestana === 'catalogo' && esAdmin && <Catalogo moduloId={modulo.id} articulos={articulos} onCambio={recargar} />}
     </main>
@@ -228,12 +228,28 @@ function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 
 }
 
 // ---------------------------------------------------------------- Movimientos
-function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string }) {
+function Movimientos({ moduloId, nombre, esAdmin, onCambio }: { moduloId: string; nombre: string; esAdmin: boolean; onCambio: () => Promise<void> }) {
   const [movs, setMovs] = useState<Mov[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tipo, setTipo] = useState<'' | 'entrada' | 'salida'>('');
   const [buscar, setBuscar] = useState('');
   const verPrecios = useVerPrecios();
+  const [recarga, setRecarga] = useState(0);
+  const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [borrando, setBorrando] = useState<number | null>(null);
+
+  async function eliminar(m: Mov) {
+    const motivo = prompt(`Eliminar ${m.tipo === 'entrada' ? 'la ENTRADA' : 'la SALIDA'} de ${num(Number(m.cantidad))} × ${m.art_codigo} (${fechaHora(m.creado_en)}).\n\nLa existencia se corrige automáticamente. Escriba el motivo:`);
+    if (motivo === null) return;
+    if (!motivo.trim()) { setAviso({ tipo: 'error', texto: 'Debe escribir el motivo.' }); return; }
+    setBorrando(m.id); setAviso(null);
+    try {
+      const r = await rpc<{ existencia: number }>('inv_eliminar_movimiento', { p_id: m.id, p_motivo: motivo.trim() });
+      setAviso({ tipo: 'ok', texto: `Movimiento eliminado. Existencia actual de ${m.art_codigo}: ${num(Number(r.existencia))}.` });
+      setRecarga(x => x + 1); await onCambio();
+    } catch (e) { setAviso({ tipo: 'error', texto: mensajeError(e) }); }
+    finally { setBorrando(null); }
+  }
 
   useEffect(() => {
     (async () => {
@@ -242,7 +258,7 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
         .eq('modulo_id', moduloId).order('id', { ascending: false }).limit(1000);
       if (r.error) setError(mensajeError(r.error)); else setMovs(r.data as unknown as Mov[]);
     })();
-  }, [moduloId]);
+  }, [moduloId, recarga]);
 
   const lista = useMemo(() => {
     const t = norm(buscar.trim());
@@ -276,6 +292,7 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
           <button key={k} className={`chip chip-mini ${tipo === k ? 'activo' : ''}`} onClick={() => setTipo(k)}>{t}</button>)}
         <button className="btn btn-sec btn-chico" onClick={exportar} disabled={!lista.length}>Descargar Excel</button>
       </div>
+      {aviso && <Aviso tipo={aviso.tipo}>{aviso.texto}</Aviso>}
       <input className="buscar-inv" value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar repuesto, empleado, máquina u observación" />
       {lista.length === 0 && <p className="nota">No hay movimientos{movs.length ? ' con ese filtro' : ' registrados todavía'}.</p>}
       <ul className="lista">
@@ -291,7 +308,10 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
                 {m.observacion && <span className="item-sub">{m.observacion}</span>}
                 <span className="item-sub">{verPrecios ? `${dinero(m.costo_total)} · ` : ''}Existencia después: {num(Number(m.existencia_despues))}</span>
               </div>
-              <div className={`inv-cant ${m.tipo}`}>{m.tipo === 'entrada' ? '+' : '−'}{num(Number(m.cantidad))}</div>
+              <div className="inv-der">
+                <div className={`inv-cant ${m.tipo}`}>{m.tipo === 'entrada' ? '+' : '−'}{num(Number(m.cantidad))}</div>
+                {esAdmin && <button className="btn btn-link peligro" disabled={borrando === m.id} onClick={() => eliminar(m)}>{borrando === m.id ? 'Eliminando…' : 'Eliminar'}</button>}
+              </div>
             </div>
           </li>
         ))}
@@ -425,15 +445,16 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
 type Estado = 'comprar' | 'abastecido' | 'exceso' | 'sin_consumo';
 const ESTADO: Record<Estado, string> = { comprar: 'Comprar', abastecido: 'Abastecido', exceso: 'Exceso de inventario', sin_consumo: 'Sin consumo ni existencia' };
 const DIAS = 60;           // ventana: últimos 2 meses
+const DIAS_SIN_MOV = 90;   // sin movimiento: más de 3 meses
 const MESES_VENTANA = 2;
 
-type FilaAn = Articulo & { entProm: number; salProm: number; meses: number | null; estado: Estado; sugerido: number; costoSug: number | null };
+type FilaAn = Articulo & { entProm: number; salProm: number; meses: number | null; estado: Estado; sugerido: number; costoSug: number | null; sinMov: boolean; diasSinMov: number | null };
 
 function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; moduloId: string; nombre: string }) {
   const [movs, setMovs] = useState<{ articulo_id: string; tipo: string; cantidad: number }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [objetivo, setObjetivo] = useState(3);           // meses a cubrir al comprar
-  const [filtro, setFiltro] = useState<Estado | ''>('');
+  const [filtro, setFiltro] = useState<Estado | 'sin_mov' | ''>('');
   const [buscar, setBuscar] = useState('');
   const desde = useMemo(() => new Date(Date.now() - DIAS * 86400000), []);
 
@@ -459,7 +480,9 @@ function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; modu
         ? (meses! < 2 ? 'comprar' : meses! <= 3 ? 'abastecido' : 'exceso')
         : (a.existencia > 0 ? 'exceso' : 'sin_consumo');
       const sugerido = estado === 'comprar' ? Math.max(0, Math.ceil(salProm * objetivo - a.existencia)) : 0;
-      return { ...a, entProm, salProm, meses, estado, sugerido, costoSug: a.precio_usd !== null ? Math.round(sugerido * a.precio_usd * 100) / 100 : null };
+      const diasSinMov = a.ultimo_movimiento_en ? Math.floor((Date.now() - new Date(a.ultimo_movimiento_en).getTime()) / 86400000) : null;
+      const sinMov = a.existencia > 0 && (diasSinMov === null || diasSinMov > DIAS_SIN_MOV);
+      return { ...a, entProm, salProm, meses, estado, sugerido, costoSug: a.precio_usd !== null ? Math.round(sugerido * a.precio_usd * 100) / 100 : null, sinMov, diasSinMov };
     });
   }, [movs, articulos, objetivo]);
 
@@ -468,7 +491,7 @@ function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; modu
 
   const cuenta = (e: Estado) => filas.filter(f => f.estado === e).length;
   const t = norm(buscar.trim());
-  const visibles = filas.filter(f => (!filtro || f.estado === filtro) && (!t || norm(`${f.codigo} ${f.descripcion} ${f.codigo_ax ?? ''}`).includes(t)))
+  const visibles = filas.filter(f => (!filtro || (filtro === 'sin_mov' ? f.sinMov : f.estado === filtro)) && (!t || norm(`${f.codigo} ${f.descripcion} ${f.codigo_ax ?? ''}`).includes(t)))
     .sort((a, b) => (a.meses ?? Infinity) - (b.meses ?? Infinity));
   const comprar = filas.filter(f => f.sugerido > 0);
   const totalCompra = comprar.reduce((s, f) => s + (f.costoSug ?? 0), 0);
@@ -479,11 +502,12 @@ function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; modu
   const columnas = [
     { titulo: 'Codigo Articulo', clave: 'codigo', ancho: 14 }, { titulo: '# Parte', clave: 'descripcion', ancho: 40 }, { titulo: 'Codigo AX', clave: 'codigo_ax', ancho: 16 },
     { titulo: 'Entrada prom. mensual', clave: 'ent' }, { titulo: 'Salida prom. mensual', clave: 'sal' }, { titulo: 'Inventario actual', clave: 'exist' },
-    { titulo: 'Stock en meses', clave: 'meses' }, { titulo: 'Punto de reorden', clave: 'reorden' }, { titulo: 'Estado', clave: 'estado', ancho: 24 },
+    { titulo: 'Stock en meses', clave: 'meses' }, { titulo: 'Ultimo movimiento', clave: 'ultimo', ancho: 14 }, { titulo: 'Sin movimiento +3 meses', clave: 'sinmov' }, { titulo: 'Punto de reorden', clave: 'reorden' }, { titulo: 'Estado', clave: 'estado', ancho: 24 },
     { titulo: 'Cantidad sugerida a comprar', clave: 'sug', ancho: 16 }, { titulo: 'Precio en Dolares', clave: 'precio' }, { titulo: 'Costo estimado compra', clave: 'costo', ancho: 16 },
   ];
   const aExcel = (fs: FilaAn[]) => fs.map(f => ({
     codigo: f.codigo, descripcion: f.descripcion, codigo_ax: f.codigo_ax, ent: Math.round(f.entProm * 100) / 100, sal: Math.round(f.salProm * 100) / 100,
+    ultimo: f.ultimo_movimiento_en ? f.ultimo_movimiento_en.slice(0, 10) : '', sinmov: f.sinMov ? 'SI' : '',
     exist: f.existencia, meses: f.meses === null ? 'Sin consumo' : Math.round(f.meses * 10) / 10, reorden: 'Por definir', estado: ESTADO[f.estado],
     sug: f.sugerido, precio: f.precio_usd ?? '', costo: f.costoSug ?? '',
   }));
@@ -491,13 +515,14 @@ function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; modu
   return (
     <section>
       <p className="nota">Movimientos de los últimos 2 meses ({fechaHora(desde.toISOString()).split(',')[0]} a hoy). Promedio mensual = total del período ÷ 2.
-        Stock en meses = inventario actual ÷ salida promedio mensual. Comprar: menos de 2 meses · Abastecido: de 2 a 3 meses · Exceso: más de 3 meses o existencia sin salidas.</p>
+        Stock en meses = inventario actual ÷ salida promedio mensual. Comprar: menos de 2 meses · Abastecido: de 2 a 3 meses · Exceso: más de 3 meses o existencia sin salidas. Sin movimiento: tiene existencia y ninguna entrada ni salida en más de 90 días.</p>
       {movs.length === 0 && <Aviso tipo="info">Todavía no hay entradas ni salidas en los últimos 2 meses: el análisis será útil cuando se registren movimientos.</Aviso>}
       <div className="rejilla-kpi">
         <button className={`kpi kpi-btn ${filtro === 'comprar' ? 'sel' : ''} ${cuenta('comprar') ? 'malo' : ''}`} onClick={() => setFiltro(filtro === 'comprar' ? '' : 'comprar')}><span>{cuenta('comprar')}</span>Comprar</button>
         <button className={`kpi kpi-btn ${filtro === 'abastecido' ? 'sel' : ''}`} onClick={() => setFiltro(filtro === 'abastecido' ? '' : 'abastecido')}><span>{cuenta('abastecido')}</span>Abastecido</button>
         <button className={`kpi kpi-btn ${filtro === 'exceso' ? 'sel' : ''} ${cuenta('exceso') ? 'alerta' : ''}`} onClick={() => setFiltro(filtro === 'exceso' ? '' : 'exceso')}><span>{cuenta('exceso')}</span>Exceso de inventario</button>
         <button className={`kpi kpi-btn ${filtro === 'sin_consumo' ? 'sel' : ''}`} onClick={() => setFiltro(filtro === 'sin_consumo' ? '' : 'sin_consumo')}><span>{cuenta('sin_consumo')}</span>Sin consumo ni existencia</button>
+        <button className={`kpi kpi-btn ${filtro === 'sin_mov' ? 'sel' : ''} ${filas.some(f => f.sinMov) ? 'alerta' : ''}`} onClick={() => setFiltro(filtro === 'sin_mov' ? '' : 'sin_mov')}><span>{filas.filter(f => f.sinMov).length}</span>Inventario sin movimiento (+3 meses)</button>
       </div>
       <div className="filtros-inv">
         <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar código, nombre o AX" />
@@ -509,12 +534,13 @@ function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; modu
       </div>
       {comprar.length > 0 && <p className="nota">Compra sugerida: {comprar.length} repuestos · costo estimado {dinero(totalCompra)}{sinPrecioCompra ? ` (sin contar ${sinPrecioCompra} sin precio)` : ''}.</p>}
       <div className="tabla-scroll alto"><table className="tabla">
-        <thead><tr><th>Código</th><th>Repuesto</th><th>Entrada prom./mes</th><th>Salida prom./mes</th><th>Inventario</th><th>Stock (meses)</th><th>Punto de reorden</th><th>Estado</th><th>Sugerido comprar</th></tr></thead>
+        <thead><tr><th>Código</th><th>Repuesto</th><th>Entrada prom./mes</th><th>Salida prom./mes</th><th>Inventario</th><th>Stock (meses)</th><th>Último movimiento</th><th>Punto de reorden</th><th>Estado</th><th>Sugerido comprar</th></tr></thead>
         <tbody>{visibles.map(f => (
           <tr key={f.id}>
             <td>{f.codigo}</td><td>{f.descripcion}</td>
             <td className="num">{num(f.entProm)}</td><td className="num">{num(f.salProm)}</td><td className="num">{num(f.existencia)}</td>
             <td className="num">{f.salProm > 0 ? fmtMeses(f.meses) : 'Sin consumo'}</td>
+            <td>{f.ultimo_movimiento_en ? fechaHora(f.ultimo_movimiento_en).split(',')[0] : '—'}{f.sinMov && <><br /><span className="est-stock exceso">Sin movimiento {f.diasSinMov !== null ? `${f.diasSinMov} días` : ''}</span></>}</td>
             <td className="nota">Por definir</td>
             <td><span className={`est-stock ${f.estado}`}>{ESTADO[f.estado]}</span></td>
             <td className="num">{f.sugerido ? <b>{num(f.sugerido)}</b> : '—'}</td>
