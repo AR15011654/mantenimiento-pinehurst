@@ -61,6 +61,26 @@ Deno.serve(async (req) => {
       return responder({ ok: true });
     }
 
+    if (body.accion === 'cambiar_correo') {
+      const id = String(body.id ?? '');
+      const email = String(body.email ?? '').trim().toLowerCase();
+      if (!id) return responder({ error: 'Usuario no indicado.' }, 400);
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return responder({ error: 'Correo no válido.' }, 400);
+      const { data: actual, error: e0 } = await admin.auth.admin.getUserById(id);
+      if (e0 || !actual?.user) return responder({ error: 'La cuenta no existe en Authentication.' }, 404);
+      if ((actual.user.email ?? '').toLowerCase() === email) return responder({ ok: true, sin_cambios: true });
+      // El administrador cambia el correo directamente (sin enlace de confirmación); la contraseña no cambia.
+      const { error: e1 } = await admin.auth.admin.updateUserById(id, { email, email_confirm: true });
+      if (e1) {
+        const msg = /already been registered|already registered|exists|duplicate/i.test(e1.message)
+          ? 'Ese correo ya lo usa otra cuenta.' : e1.message;
+        return responder({ error: msg }, 400);
+      }
+      const { error: e2 } = await admin.from('usuarios').update({ email }).eq('id', id);
+      if (e2) return responder({ error: 'Se cambió el correo de inicio de sesión, pero no en la lista de usuarios: ' + e2.message }, 500);
+      return responder({ ok: true });
+    }
+
     return responder({ error: 'Acción no válida' }, 400);
   } catch (e) {
     return responder({ error: (e as Error).message }, 500);
