@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { duracion, fecha, FRECUENCIAS, mensajeError, supabase, todas } from '../lib';
 import { descargarExcel } from '../excel';
 import { useSesion } from '../sesion';
 import { Aviso, Cargando } from '../ui';
-import ModuloImagen from '../ModuloImagen';
+import ModuloImagen, { ETIQUETA_MODULO } from '../ModuloImagen';
 
 type MaqProg = {
   id: string; asset_id: string; qr: string | null; serie: string | null; tipo: string | null; fabricante: string | null;
@@ -58,7 +58,10 @@ function Barra({ valor, max, texto }: { valor: number; max: number; texto?: stri
 export default function Mantenimiento() {
   const { sesion } = useSesion();
   const modulos = sesion?.modulos ?? [];
-  const [modulo, setModulo] = useState('');
+  const [params] = useSearchParams();
+  const desdeArea = modulos.find(m => m.codigo === params.get('m'));
+  const [modulo, setModulo] = useState(desdeArea?.id ?? '');
+  const actual = modulos.find(m => m.id === modulo);
   const [area, setArea] = useState('');
   const [periodo, setPeriodo] = useState<Periodo>('mes');
   const [maqs, setMaqs] = useState<MaqProg[] | null>(null);
@@ -67,6 +70,9 @@ export default function Mantenimiento() {
   const [error, setError] = useState<string | null>(null);
   const [listaProg, setListaProg] = useState<Estado>('vencida');
   const areas = modulos.find(m => m.id === modulo)?.areas ?? [];
+  // Al llegar desde un área (o volver al menú general) se ajusta el filtro.
+  const codigoArea = params.get('m');
+  useEffect(() => { setModulo(desdeArea?.id ?? ''); setArea(''); }, [codigoArea]); // eslint-disable-line react-hooks/exhaustive-deps
   const r = rango(periodo);
   const hoy = hoyISO();
 
@@ -168,7 +174,12 @@ export default function Mantenimiento() {
 
   return (
     <main className="contenido">
-      <header className="titulo"><h1>Mantenimiento</h1><p className="sub">Programación, avance y desempeño de sus áreas.</p></header>
+      {desdeArea ? (
+        <div className="form-cabecera">
+          <Link to={`/area/${desdeArea.codigo}`} className="volver" aria-label="Volver al área">←</Link>
+          <h1>Mantenimiento · {actual?.nombre ?? 'Todos los módulos'}</h1>
+        </div>
+      ) : <header className="titulo"><h1>Mantenimiento</h1><p className="sub">Programación, avance y desempeño de sus áreas.</p></header>}
 
       <div className="filtros-dash">
         <select value={modulo} onChange={e => { setModulo(e.target.value); setArea(''); }} aria-label="Módulo">
@@ -193,9 +204,9 @@ export default function Mantenimiento() {
 
       <h2 className="seccion">Registrar mantenimiento</h2>
       <div className="rejilla-app chica">
-        {modulos.map(m => (
+        {modulos.filter(m => !modulo || m.id === modulo).map(m => (
           <Link key={m.id} to={`/m/${m.codigo}`} className="tile">
-            <ModuloImagen codigo={m.codigo} etiqueta={m.codigo === 'COSTURA_PD' ? 'COSTURA Y PD' : m.codigo === 'CORTE_BODEGA_STAGING' ? 'CORTE Y BODEGA' : 'SERIGRAFÍA, BORDADO\nY SUBLIMADO'} />
+            <ModuloImagen codigo={m.codigo} etiqueta={ETIQUETA_MODULO[m.codigo] ?? m.nombre.toUpperCase()} />
           </Link>
         ))}
       </div>

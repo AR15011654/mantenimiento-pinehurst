@@ -1,15 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useSesion } from '../sesion';
-import ModuloImagen from '../ModuloImagen';
+import ModuloImagen, { ETIQUETA_MODULO as CORTO } from '../ModuloImagen';
 import InstalarApp from '../InstalarApp';
 
-const CORTO: Record<string, string> = {
-  COSTURA_PD: 'COSTURA Y PD',
-  SERIGRAFIA_BORDADO_SUBLIMADO: 'SERIGRAFÍA, BORDADO\nY SUBLIMADO',
-  CORTE_BODEGA_STAGING: 'CORTE Y BODEGA',
-};
-
-/** Técnico: módulos para registrar. Gerente de área y administrador: Mantenimiento e Inventario. */
+/** Técnico: módulos para registrar. Gerente de área y administrador: sus áreas; cada una abre Mantenimiento e Inventario. */
 export default function Inicio() {
   const { sesion } = useSesion();
   const perfil = sesion?.usuario?.perfil;
@@ -19,15 +13,14 @@ export default function Inicio() {
     return (
       <main className="contenido">
         <InstalarApp />
+        {modulos.length === 0 && <p>No tiene áreas asignadas. Pida al administrador que le asigne una.</p>}
         <div className="rejilla-app">
-          <Link to="/mantenimiento" className="tile">
-            <ModuloImagen codigo="MANTENIMIENTO" etiqueta="MANTENIMIENTO" />
-            <span className="tile-nombre">Programación, avance y registros</span>
-          </Link>
-          <div className="tile deshabilitado" aria-disabled="true" title="Se construirá en la siguiente etapa">
-            <ModuloImagen codigo="INVENTARIO" etiqueta="INVENTARIO" />
-            <span className="tile-nombre">Próximamente</span>
-          </div>
+          {modulos.map(m => (
+            <Link key={m.id} to={`/area/${m.codigo}`} className="tile">
+              <ModuloImagen codigo={m.codigo} etiqueta={CORTO[m.codigo] ?? m.nombre.toUpperCase()} />
+              <span className="tile-nombre">{(CORTO[m.codigo] ?? m.nombre.toUpperCase()).replace('\n', ' ')}</span>
+            </Link>
+          ))}
           {perfil === 'admin' && (
             <Link to="/admin" className="tile">
               <ModuloImagen codigo="ADMIN" etiqueta="ADMINISTRACIÓN" />
