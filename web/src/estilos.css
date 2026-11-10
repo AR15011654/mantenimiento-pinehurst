@@ -20,6 +20,7 @@
   color-scheme: dark;
 }
 :root[data-tema="oscuro"] .aviso { border-color: var(--borde); }
+:root[data-tema="oscuro"] .est-programado { background: #2c1f4a; color: #c9b3f5; }
 :root[data-tema="oscuro"] a:not([class]) { color: #6db6f2; }
 :root[data-tema="oscuro"] .menu-abajo a, :root[data-tema="oscuro"] .barra a { color: inherit; }
 * { box-sizing: border-box; }
@@ -152,7 +153,7 @@ textarea { resize: vertical; }
 .volver { font-size: 1.6rem; text-decoration: none; color: var(--pri); line-height: 1; padding: 4px 8px; }
 .form-app { display: flex; flex-direction: column; gap: 18px; background: var(--tarjeta); border: 1px solid var(--borde); border-top: 3px solid var(--azul); border-radius: var(--radio); padding: 18px 16px; }
 .form-app .campo-etiqueta { font-size: .85rem; letter-spacing: .02em; color: var(--texto2); }
-.req { color: var(--azul); margin-left: 2px; }
+.req { color: var(--pri); margin-left: 2px; }
 .campo-qr { display: flex; flex-wrap: wrap; gap: 8px; }
 .campo-qr input { flex: 1; min-width: 0; min-height: 50px; }
 .campo-qr .lector, .campo-qr .aviso { flex-basis: 100%; }

@@ -13,6 +13,7 @@ import Inventario from './pages/Inventario';
 import Mantenimiento from './pages/Mantenimiento';
 import { SelectorIdioma } from './idioma';
 import { SelectorTema } from './tema';
+import ErrorPantalla from './ErrorPantalla';
 import Escanear from './pages/Escanear';
 import FichaMaquina from './pages/FichaMaquina';
 import Trabajo from './pages/Trabajo';
@@ -97,6 +98,7 @@ export default function App() {
     <ProveedorSesion>
       <HashRouter>
         <Marco>
+          <RutasSeguras>
           <Routes>
             <Route path="/entrar" element={<Entrar />} />
             <Route path="/cambiar-clave" element={<CambiarClave />} />
@@ -119,8 +121,15 @@ export default function App() {
             <Route path="/admin/importacion" element={<Protegida admin><Importacion /></Protegida>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </RutasSeguras>
         </Marco>
       </HashRouter>
     </ProveedorSesion>
   );
+}
+
+/** Protege cada pantalla: si falla, aviso en lugar de pantalla en blanco. */
+function RutasSeguras({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return <ErrorPantalla clave={pathname}>{children}</ErrorPantalla>;
 }
