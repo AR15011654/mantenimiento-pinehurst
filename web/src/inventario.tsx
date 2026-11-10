@@ -12,12 +12,12 @@ export function useVerPrecios() {
 
 export type Articulo = {
   id: string; modulo_id: string; codigo: string; descripcion: string; codigo_ax: string | null; ubicacion: string | null;
-  precio_usd: number | null; notas: string | null; existencia: number; activo: boolean;
+  precio_usd: number | null; notas: string | null; existencia: number; activo: boolean; ultimo_movimiento_en?: string | null;
 };
 
 export async function cargarArticulos(moduloId: string, soloActivos = true): Promise<Articulo[]> {
   const r = await todas<Articulo>(() => {
-    let q = supabase.from('inv_v_articulos').select('id, modulo_id, codigo, descripcion, codigo_ax, ubicacion, precio_usd, notas, existencia, activo')
+    let q = supabase.from('inv_v_articulos').select('id, modulo_id, codigo, descripcion, codigo_ax, ubicacion, precio_usd, notas, existencia, activo, ultimo_movimiento_en')
       .eq('modulo_id', moduloId);
     if (soloActivos) q = q.eq('activo', true);
     return q.order('codigo');
