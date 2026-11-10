@@ -36,6 +36,8 @@ export default function Entrar() {
 
   return (
     <main className="contenido angosto">
+      <img className="logo-entrar claro" src="logo-color.png" alt="Pinehurst MFG" />
+      <img className="logo-entrar oscuro" src="logo-blanco.png" alt="Pinehurst MFG" />
       <Titulo sinVolver sub="Ingrese con la cuenta que le asignó el administrador.">Iniciar sesión</Titulo>
       <form onSubmit={entrar} className="tarjeta">
         <Campo etiqueta="Correo"><input type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required /></Campo>
