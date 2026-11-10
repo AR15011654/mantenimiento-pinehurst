@@ -143,7 +143,7 @@ function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 
   async function guardar() {
     setError(null); setOk(null);
     const cant = numero(cantidad);
-    if (!art) { setError('Elija el repuesto.'); return; }
+    if (!art) { setError('Elija el repuesto: escriba el código completo o toque el repuesto en la lista.'); return; }
     if (!cantidad.trim() || !Number.isFinite(cant) || cant <= 0) { setError('Escriba una cantidad mayor que cero.'); return; }
     if (tipo === 'salida' && cant > art.existencia) { setError(`Solo hay ${num(art.existencia)} en existencia de ${art.codigo}.`); return; }
     if (!codEmp.trim()) { setError('Escriba el código del empleado.'); return; }
