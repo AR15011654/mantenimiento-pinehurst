@@ -257,3 +257,8 @@ button.volver { background: none; border: none; cursor: pointer; font: inherit; 
 :root[data-tema="oscuro"] .logo-entrar.claro { display: none; }
 :root[data-tema="oscuro"] .logo-entrar.oscuro { display: block; }
 @media (max-width: 420px) { .marca span { display: none; } }
+/* Etiquetas con código de barras (Catálogo) */
+.etiquetas-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 12px 0; }
+.etiquetas-barra .campo { flex: 1; min-width: 220px; margin: 0; }
+.etiquetas-barra .campo.copias { flex: 0 0 90px; min-width: 90px; }
+.aviso.fila-botones { justify-content: space-between; }

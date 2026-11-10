@@ -28,6 +28,8 @@ const PATRONES: [RegExp, (m: string[]) => string][] = [
   [/^En la hoja "(.+)" no se encontraron las columnas "Codigo Articulo" y "# Parte"\.$/, m => `The columns "Codigo Articulo" and "# Parte" were not found in sheet "${m[1]}".`],
   [/^Vista previa de (.+)$/, m => `Preview of ${m[1]}`],
   [/^Editar (.+)$/, m => `Edit ${m[1]}`],
+  [/^Etiquetas de todo el catálogo \((\d+)\)$/, m => `Labels for the whole catalog (${m[1]})`],
+  [/^El código "(.+)" tiene caracteres que no se pueden imprimir en código de barras\.$/, m => `Code "${m[1]}" has characters that cannot be printed as a barcode.`],
   [/^Usuario actualizado\. Ahora inicia sesión con (.+)\.$/, m => `User updated. They now sign in with ${m[1]}.`],
   [/^¿Cambiar el correo de inicio de sesión de (.+) a (.+)\?$/, m => `Change the sign-in email from ${m[1]} to ${m[2]}?`],
   [/^Se cambió el correo de inicio de sesión, pero no en la lista de usuarios: (.+)$/, m => `The sign-in email was changed, but not in the user list: ${m[1]}`],
