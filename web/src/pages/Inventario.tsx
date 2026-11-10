@@ -7,6 +7,7 @@ import LectorQR from '../LectorQR';
 import { descargarExcel, leerLibro, textoCelda } from '../excel';
 import { ETIQUETA_MODULO } from '../ModuloImagen';
 import { Articulo, cargarArticulos, dinero, num, SelectorArticulo, useVerPrecios } from '../inventario';
+import { descargarEtiquetas, Formato, FORMATOS, siguienteCodigo } from '../etiquetas';
 
 type Pestana = 'existencias' | 'entrada' | 'salida' | 'movimientos' | 'analisis' | 'catalogo';
 type Mov = {
@@ -336,6 +337,20 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [edit, setEdit] = useState<Partial<Articulo> | null>(null);
+  const [guardado, setGuardado] = useState<Pick<Articulo, 'codigo' | 'descripcion' | 'codigo_ax' | 'ubicacion'> | null>(null);
+  const [formato, setFormato] = useState<Formato>('carta');
+  const [copias, setCopias] = useState('1');
+
+  async function etiquetas(arts: Pick<Articulo, 'codigo' | 'descripcion' | 'codigo_ax' | 'ubicacion'>[], nombre: string) {
+    setError(null);
+    const n = Math.min(Math.max(parseInt(copias, 10) || 1, 1), 100);
+    try { await descargarEtiquetas(arts, formato, `Etiquetas_${nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '_')}.pdf`, n); }
+    catch (e) { setError((e as Error).message); }
+  }
+  function nuevo() {
+    setGuardado(null);
+    setEdit({ activo: true, codigo: siguienteCodigo(articulos.map(a => a.codigo)) });
+  }
 
   async function leer(f?: File) {
     setError(null); setRes(null); setFilas(null); setArchivo(null);
@@ -381,6 +396,7 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
     try {
       await rpc('inv_guardar_articulo', { p_id: edit.id ?? null, p_modulo_id: moduloId, p_codigo: edit.codigo ?? '', p_descripcion: edit.descripcion ?? '',
         p_codigo_ax: edit.codigo_ax ?? null, p_ubicacion: edit.ubicacion ?? null, p_precio: precio, p_notas: edit.notas ?? null, p_activo: edit.activo ?? true });
+      setGuardado({ codigo: (edit.codigo ?? '').trim(), descripcion: (edit.descripcion ?? '').trim(), codigo_ax: edit.codigo_ax || null, ubicacion: edit.ubicacion || null });
       setEdit(null);
       await onCambio();
     } catch (e) { setError(mensajeError(e)); }
@@ -414,11 +430,18 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
 
       <div className="tarjeta">
         <div className="fila-titulo"><h2>Artículos ({articulos.length})</h2>
-          <button className="btn btn-sec btn-chico" onClick={() => setEdit({ activo: true })}>+ Nuevo artículo</button></div>
+          <button className="btn btn-sec btn-chico" onClick={nuevo}>+ Nuevo artículo</button></div>
+        {guardado && !edit && (
+          <div className="aviso aviso-ok fila-botones" role="status">
+            <span>Artículo <b>{guardado.codigo}</b> guardado.</span>
+            <button className="btn btn-pri btn-chico" onClick={() => etiquetas([guardado], guardado.codigo)}>Descargar código de barras</button>
+          </div>
+        )}
         {edit && (
           <div className="form-app">
             <h3>{edit.id ? `Editar ${edit.codigo}` : 'Nuevo artículo'}</h3>
-            {campo('codigo', 'CÓDIGO ARTÍCULO *')}{campo('descripcion', 'DESCRIPCIÓN (# PARTE) *')}{campo('codigo_ax', 'CÓDIGO AX')}
+            {campo('codigo', 'CÓDIGO ARTÍCULO *')}
+            {!edit.id && <p className="nota">Código generado automáticamente, siguiente del catálogo. Puede cambiarlo si lo necesita.</p>}{campo('descripcion', 'DESCRIPCIÓN (# PARTE) *')}{campo('codigo_ax', 'CÓDIGO AX')}
             {campo('ubicacion', 'UBICACIÓN')}{campo('precio_usd', 'PRECIO EN DÓLARES', { decimal: true })}{campo('notas', 'NOTAS')}
             <label className="check"><input type="checkbox" checked={edit.activo ?? true} onChange={e => setEdit(x => ({ ...x, activo: e.target.checked }))} /> Activo (desmarque para dar de baja)</label>
             {edit.id && <p className="nota">Existencia actual: {num(edit.existencia)}. La existencia solo cambia con entradas y salidas.</p>}
@@ -426,13 +449,23 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
               <button className="btn btn-sec" onClick={() => setEdit(null)}>Cancelar</button></div>
           </div>
         )}
+        <div className="etiquetas-barra">
+          <label className="campo"><span className="campo-etiqueta">FORMATO DE ETIQUETA</span>
+            <select value={formato} onChange={e => setFormato(e.target.value as Formato)}>
+              {(Object.keys(FORMATOS) as Formato[]).map(f => <option key={f} value={f}>{FORMATOS[f]}</option>)}
+            </select></label>
+          <label className="campo copias"><span className="campo-etiqueta">COPIAS</span>
+            <input value={copias} inputMode="numeric" onChange={e => setCopias(e.target.value.replace(/\D/g, ''))} /></label>
+          <button className="btn btn-sec" onClick={() => etiquetas(articulos.filter(a => a.activo), 'catalogo')}>Etiquetas de todo el catálogo ({articulos.filter(a => a.activo).length})</button>
+        </div>
         <div className="tabla-scroll alto"><table className="tabla">
           <thead><tr><th>Código</th><th>Descripción</th><th>Código AX</th><th>Ubicación</th><th>Precio</th><th>Exist.</th><th></th></tr></thead>
           <tbody>{articulos.map(a => (
             <tr key={a.id} className={a.activo ? '' : 'inactivo'}>
               <td>{a.codigo}</td><td>{a.descripcion}{a.activo ? '' : ' (baja)'}</td><td>{a.codigo_ax ?? '—'}</td><td>{a.ubicacion ?? '—'}</td>
               <td className="num">{dinero(a.precio_usd)}</td><td className="num">{num(a.existencia)}</td>
-              <td><button className="btn btn-link" onClick={() => setEdit(a)}>Editar</button></td>
+              <td className="acciones-celda"><button className="btn btn-link" onClick={() => { setGuardado(null); setEdit(a); }}>Editar</button>
+                <button className="btn btn-link" onClick={() => etiquetas([a], a.codigo)}>Etiqueta</button></td>
             </tr>
           ))}</tbody>
         </table></div>
