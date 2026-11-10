@@ -1,3 +1,10 @@
+/** Nombre corto de cada módulo para los cuadros (\n = dos renglones). */
+export const ETIQUETA_MODULO: Record<string, string> = {
+  COSTURA_PD: 'COSTURA Y PD',
+  SERIGRAFIA_BORDADO_SUBLIMADO: 'SERIGRAFÍA, BORDADO\nY SUBLIMADO',
+  CORTE_BODEGA_STAGING: 'CORTE Y BODEGA',
+};
+
 // Ilustraciones propias de cada módulo (SVG en línea, sin archivos externos).
 const AZUL = '#1f6fd1', CLARO = '#5aa8ff', VERDE = '#3fbf5f', FONDO = '#0b2546';
 
