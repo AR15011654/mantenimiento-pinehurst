@@ -7,12 +7,15 @@ import { Aviso, Cargando, Campo, Dato, Insignia, Titulo } from '../ui';
 type Evento = { id: number; evento: string; estado_anterior: string | null; estado_nuevo: string | null; motivo: string | null; usuario_id: string | null; creado_en: string };
 type Comentario = { id: string; texto: string; usuario_id: string; creado_en: string };
 type Foto = { id: string; ruta: string; creado_en: string; url?: string };
+type Externo = { proveedor: string; costo: number; moneda: string; actualizado_en: string };
+type Documento = { id: string; ruta: string; nombre_original: string | null; tipo_mime: string | null; creado_en: string; url?: string };
 type Periodo = { id: number; inicio_en: string; fin_en: string | null };
 type Pendiente = { clave: string; texto: string; error?: string; enviando?: boolean };
 
 const NOMBRE_EVENTO: Record<string, string> = {
   iniciado: 'Inicio', comentario: 'Comentario', foto: 'Foto', finalizado: 'Finalizado', validado: 'Validado',
   devuelto: 'Devuelto al técnico', reanudado: 'Reanudado', cancelado: 'Cancelado', reabierto: 'Reabierto',
+  servicio_externo: 'Servicio externo', documento: 'Cotización o factura',
 };
 
 async function reducirImagen(f: File): Promise<Blob> {
@@ -33,6 +36,8 @@ export default function Trabajo() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [fotos, setFotos] = useState<Foto[]>([]);
+  const [externo, setExterno] = useState<Externo | null>(null);
+  const [docs, setDocs] = useState<Documento[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [nombres, setNombres] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +56,21 @@ export default function Trabajo() {
       if (r.error) throw r.error;
       if (!r.data) { setError('El trabajo no existe o no tiene permiso para verlo.'); return; }
       setT(r.data as Mantenimiento);
-      const [ev, co, fo, pe] = await Promise.all([
+      const [ev, co, fo, pe, se, dc] = await Promise.all([
         supabase.from('mantenimiento_eventos').select('*').eq('mantenimiento_id', id).order('id'),
         supabase.from('mantenimiento_comentarios').select('*').eq('mantenimiento_id', id).order('creado_en'),
         supabase.from('mantenimiento_fotos').select('*').eq('mantenimiento_id', id).order('creado_en'),
         supabase.from('mantenimiento_periodos').select('*').eq('mantenimiento_id', id).order('id'),
+        supabase.from('mantenimiento_servicio_externo').select('*').eq('mantenimiento_id', id).maybeSingle(),
+        supabase.from('mantenimiento_documentos').select('*').eq('mantenimiento_id', id).order('creado_en'),
       ]);
+      setExterno((se.data ?? null) as Externo | null);
+      const ds = (dc.data ?? []) as Documento[];
+      if (ds.length) {
+        const s = await supabase.storage.from('mant-evidencias').createSignedUrls(ds.map(d => d.ruta), 3600);
+        ds.forEach((d, i) => { d.url = s.data?.[i]?.signedUrl ?? undefined; });
+      }
+      setDocs(ds);
       const evs = (ev.data ?? []) as Evento[];
       setEventos(evs); setComentarios((co.data ?? []) as Comentario[]); setPeriodos((pe.data ?? []) as Periodo[]);
       const fs = (fo.data ?? []) as Foto[];
@@ -195,6 +209,21 @@ export default function Trabajo() {
           <Campo etiqueta="Motivo"><textarea rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} /></Campo>
           <button className="btn btn-sec" disabled={ocupado} onClick={() => accion(() => rpc('reabrir_mantenimiento', { p_mantenimiento_id: t.id, p_motivo: motivo }), 'Trabajo reabierto: vuelve a en proceso.')}>Reabrir</button>
         </details>
+      )}
+
+      {externo && (
+        <section className="tarjeta">
+          <h2>Servicio externo</h2>
+          <p><b>Proveedor:</b> {externo.proveedor}<br />
+            <b>Costo:</b> {externo.moneda === 'HNL' ? 'L' : '$'} {Number(externo.costo).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {externo.moneda}</p>
+          {docs.length > 0 ? (
+            <div className="doc-lista">
+              {docs.map(d => d.url
+                ? <a key={d.id} href={d.url} target="_blank" rel="noreferrer">{d.tipo_mime === 'application/pdf' ? '📄' : '🖼️'} {d.nombre_original ?? 'Documento'}</a>
+                : <span key={d.id}>{d.nombre_original ?? 'Documento'} (no disponible)</span>)}
+            </div>
+          ) : <p className="nota">Sin cotización o factura adjunta.</p>}
+        </section>
       )}
 
       {fotos.length > 0 && (

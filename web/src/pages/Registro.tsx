@@ -8,6 +8,7 @@ import LectorQR from '../LectorQR';
 type Mecanico = { encontrado: boolean; id?: string; codigo?: string; nombre?: string; autorizado?: boolean; mensaje: string };
 type Trabajo = { id: string; folio: number; inicio_en: string | null; retomado?: boolean };
 type Foto = { clave: string; blob: Blob; url: string; subida: boolean };
+type Doc = { clave: string; blob: Blob; nombre: string; mime: string; ext: string; url: string; subido: boolean };
 type Resultado = { folio: number; fin_en: string; maquina: string; mecanico: string; frecuencia: string | null; proximo: string | null };
 
 async function reducirImagen(f: File): Promise<Blob> {
@@ -48,6 +49,11 @@ export default function Registro() {
   const [finalizando, setFinalizando] = useState(false);
   const [errFin, setErrFin] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [externo, setExterno] = useState<'' | 'si' | 'no'>('');
+  const [proveedor, setProveedor] = useState('');
+  const [costo, setCosto] = useState('');
+  const [moneda, setMoneda] = useState<'USD' | 'HNL'>('USD');
+  const [docs, setDocs] = useState<Doc[]>([]);
   const claves = useRef({ inicio: nuevaClave(), comentario: nuevaClave(), fin: nuevaClave() });
 
   function limpiar() {
@@ -55,6 +61,7 @@ export default function Registro() {
     setQr(''); setMaquina(null); setOpciones([]); setErrMaq(null);
     setCodMec(soloPropio ? sesion?.empleado?.codigo ?? '' : ''); setMec(null); setErrMec(null);
     setTipo(''); setTrabajo(null); setErrInicio(null); setComentario(''); setComGuardado(''); setFotos([]);
+    docs.forEach(d => URL.revokeObjectURL(d.url)); setExterno(''); setProveedor(''); setCosto(''); setMoneda('USD'); setDocs([]);
     setErrFin(null); setResultado(null);
     claves.current = { inicio: nuevaClave(), comentario: nuevaClave(), fin: nuevaClave() };
     window.scrollTo(0, 0);
@@ -116,9 +123,33 @@ export default function Registro() {
     setFotos(fs => [...fs, ...nuevas]);
   }
 
+  // Cotización o factura: foto (se reduce a JPEG) o archivo digital (PDF o imagen, hasta 10 MB).
+  async function agregarDocs(lista: FileList | null) {
+    if (!lista) return;
+    const nuevos: Doc[] = [];
+    for (const f of Array.from(lista)) {
+      try {
+        if (f.type === 'application/pdf') {
+          if (f.size > 10 * 1024 * 1024) throw new Error(`${f.name}: el archivo pasa de 10 MB.`);
+          nuevos.push({ clave: nuevaClave(), blob: f, nombre: f.name, mime: f.type, ext: 'pdf', url: URL.createObjectURL(f), subido: false });
+        } else if (f.type.startsWith('image/')) {
+          const blob = await reducirImagen(f);
+          nuevos.push({ clave: nuevaClave(), blob, nombre: f.name || 'foto.jpg', mime: 'image/jpeg', ext: 'jpg', url: URL.createObjectURL(blob), subido: false });
+        } else throw new Error(`${f.name}: solo se aceptan fotos o PDF.`);
+      } catch (e) { setErrFin((e as Error).message); }
+    }
+    setDocs(ds => [...ds, ...nuevos]);
+  }
+
   // 4. Finalizar: guarda comentario y fotos, y el servidor registra la fecha y hora de cierre.
   async function finalizar() {
     if (!trabajo || !maquina || !mec) return;
+    const montoTxt = costo.replace(/[$,\s]/g, '');
+    const monto = Number(montoTxt);
+    if (externo === 'si') {
+      if (!proveedor.trim()) { setErrFin('Escriba el proveedor del servicio externo.'); return; }
+      if (!montoTxt || !Number.isFinite(monto) || monto < 0) { setErrFin('Escriba el costo del servicio externo.'); return; }
+    }
     setFinalizando(true); setErrFin(null);
     try {
       const c = comentario.trim();
@@ -133,6 +164,17 @@ export default function Registro() {
         if (up.error && !/exist|duplicate/i.test(up.error.message)) throw new Error('No se pudo subir una foto: ' + mensajeError(up.error));
         await rpc('registrar_foto', { p_mantenimiento_id: trabajo.id, p_ruta: ruta, p_tamano: f.blob.size, p_mime: 'image/jpeg' });
         f.subida = true;
+      }
+      if (externo === 'si') {
+        await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim(), p_costo: monto, p_moneda: moneda });
+        for (const d of docs) {
+          if (d.subido) continue;
+          const ruta = `${trabajo.id}/docs/${d.clave}.${d.ext}`;
+          const up = await supabase.storage.from('mant-evidencias').upload(ruta, d.blob, { contentType: d.mime, upsert: false });
+          if (up.error && !/exist|duplicate/i.test(up.error.message)) throw new Error('No se pudo subir la cotización o factura: ' + mensajeError(up.error));
+          await rpc('registrar_documento', { p_mantenimiento_id: trabajo.id, p_ruta: ruta, p_nombre: d.nombre, p_mime: d.mime, p_tamano: d.blob.size });
+          d.subido = true;
+        }
       }
       // Si el administrador lo había reabierto, se abre un nuevo período antes de cerrar.
       const per = await supabase.from('mantenimiento_periodos').select('id').eq('mantenimiento_id', trabajo.id).is('fin_en', null);
@@ -267,6 +309,62 @@ export default function Registro() {
             </div>
           )}
         </div>
+
+        <div className="campo">
+          <span className="campo-etiqueta">SERVICIO EXTERNO</span>
+          <div className="opciones-tipo" role="radiogroup" aria-label="Servicio externo">
+            {(['si', 'no'] as const).map(v => (
+              <button type="button" key={v} role="radio" aria-checked={externo === v}
+                className={`btn btn-opcion ${externo === v ? 'activo' : ''}`} onClick={() => setExterno(v)}>
+                {v === 'si' ? 'SÍ' : 'NO'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {externo === 'si' && (
+          <div className="bloque-externo">
+            <div className="campo">
+              <span className="campo-etiqueta">PROVEEDOR<span className="req">*</span></span>
+              <input value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor o taller" />
+            </div>
+            <div className="campo">
+              <span className="campo-etiqueta">COSTO ($)<span className="req">*</span></span>
+              <div className="campo-costo">
+                <input value={costo} inputMode="decimal" placeholder="0.00" onChange={e => setCosto(e.target.value)} />
+                <select value={moneda} onChange={e => setMoneda(e.target.value as 'USD' | 'HNL')} aria-label="Moneda">
+                  <option value="USD">USD $</option>
+                  <option value="HNL">HNL L</option>
+                </select>
+              </div>
+            </div>
+            <div className="campo">
+              <span className="campo-etiqueta">COTIZACIÓN O FACTURA</span>
+              <div className="doc-botones">
+                <label className="caja-foto">
+                  <span>📷 Tomar foto</span>
+                  <input type="file" accept="image/*" capture="environment" onChange={e => { agregarDocs(e.target.files); e.target.value = ''; }} />
+                </label>
+                <label className="caja-foto">
+                  <span>📎 Subir archivo</span>
+                  <input type="file" accept="image/*,application/pdf" multiple onChange={e => { agregarDocs(e.target.files); e.target.value = ''; }} />
+                </label>
+              </div>
+              <span className="nota">Foto de la cotización o factura, o el archivo digital (PDF o imagen, hasta 10 MB).</span>
+              {docs.length > 0 && (
+                <div className="fotos">
+                  {docs.map(d => (
+                    <div key={d.clave} className="foto-mini">
+                      {d.ext === 'pdf' ? <div className="doc-pdf"><b>PDF</b><span>{d.nombre}</span></div> : <img src={d.url} alt={d.nombre} />}
+                      {!d.subido && <button type="button" className="quitar" aria-label="Quitar documento"
+                        onClick={() => { URL.revokeObjectURL(d.url); setDocs(ds => ds.filter(x => x.clave !== d.clave)); }}>✕</button>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {errFin && <Aviso tipo="error">{errFin}</Aviso>}
         <button type="button" className="btn btn-fin" disabled={!trabajo || finalizando} onClick={finalizar}>
