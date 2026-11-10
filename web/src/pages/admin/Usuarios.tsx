@@ -6,7 +6,7 @@ import { Aviso, Campo, Titulo } from '../../ui';
 type Alc = { modulo_id: string; area_id: string | null; modulo?: string; area?: string | null };
 type Usuario = { id: string; email: string; nombre: string | null; perfil: string; activo: boolean; empleado_id: string | null; empleado_codigo: string | null; empleado_nombre: string | null; puede_registrar_otros: boolean; alcance: Alc[]; ultimo_acceso: string | null; invitacion_aceptada: boolean };
 type Mod = { id: string; nombre: string; areas: { id: string; nombre: string }[] };
-type Form = { id?: string; email: string; nombre: string; perfil: string; empleadoCodigo: string; puedeOtros: boolean; alcance: Alc[] };
+type Form = { id?: string; email: string; emailOriginal?: string; nombre: string; perfil: string; empleadoCodigo: string; puedeOtros: boolean; alcance: Alc[] };
 
 const vacio: Form = { email: '', nombre: '', perfil: 'tecnico', empleadoCodigo: '', puedeOtros: false, alcance: [] };
 const PERFILES: Record<string, string> = { admin: 'Administrador', supervisor: 'Gerente de área', tecnico: 'Técnico' };
@@ -64,8 +64,14 @@ export default function Usuarios() {
       if (form.perfil !== 'admin' && form.alcance.length === 0) throw new Error('Asigne al menos un módulo o un área.');
       const empleadoId = await resolverEmpleado(form.empleadoCodigo);
       if (form.id) {
+        const nuevoCorreo = form.email.trim().toLowerCase();
+        const cambiaCorreo = nuevoCorreo !== (form.emailOriginal ?? '').toLowerCase();
+        if (cambiaCorreo) {
+          if (!confirm(`¿Cambiar el correo de inicio de sesión de ${form.emailOriginal} a ${nuevoCorreo}?\nLa persona deberá entrar con el correo nuevo y la misma contraseña.`)) { setOcupado(false); return; }
+          await llamarFuncion({ accion: 'cambiar_correo', id: form.id, email: nuevoCorreo });
+        }
         await rpc('admin_guardar_usuario', { p_id: form.id, p_perfil: form.perfil, p_nombre: form.nombre, p_empleado_id: empleadoId, p_puede_registrar_otros: form.puedeOtros, p_alcance: form.alcance });
-        setMsg({ tipo: 'ok', t: 'Usuario actualizado.' });
+        setMsg({ tipo: 'ok', t: cambiaCorreo ? `Usuario actualizado. Ahora inicia sesión con ${nuevoCorreo}.` : 'Usuario actualizado.' });
       } else {
         await llamarFuncion({ accion: 'invitar', email: form.email.trim().toLowerCase(), nombre: form.nombre, perfil: form.perfil, empleado_id: empleadoId, puede_registrar_otros: form.puedeOtros, alcance: form.alcance, redirectTo: window.location.origin + window.location.pathname });
         setMsg({ tipo: 'ok', t: `Invitación enviada a ${form.email}. La persona debe abrir el enlace del correo y crear su contraseña.` });
@@ -92,8 +98,8 @@ export default function Usuarios() {
 
       {form && (
         <form className="tarjeta" onSubmit={guardar}>
-          <h2>{form.id ? `Editar ${form.email}` : 'Invitar usuario'}</h2>
-          {!form.id && <Campo etiqueta="Correo"><input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Campo>}
+          <h2>{form.id ? `Editar ${form.emailOriginal}` : 'Invitar usuario'}</h2>
+          <Campo etiqueta="Correo" ayuda={form.id ? 'Si lo cambia, la persona entra con el correo nuevo y la misma contraseña.' : undefined}><input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} autoComplete="off" /></Campo>
           <Campo etiqueta="Nombre para mostrar"><input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} /></Campo>
           <Campo etiqueta="Perfil">
             <select value={form.perfil} onChange={e => setForm({ ...form, perfil: e.target.value })} disabled={form.id === sesion?.usuario?.id}>
@@ -133,7 +139,7 @@ export default function Usuarios() {
             <td>{u.ultimo_acceso ? fechaHora(u.ultimo_acceso) : 'Invitación pendiente'}</td>
             <td>{u.activo ? 'Activo' : 'Desactivado'}</td>
             <td className="acciones-celda">
-              <button className="btn btn-link" onClick={() => setForm({ id: u.id, email: u.email, nombre: u.nombre ?? '', perfil: u.perfil, empleadoCodigo: u.empleado_codigo ?? '', puedeOtros: u.puede_registrar_otros, alcance: u.alcance.map(a => ({ modulo_id: a.modulo_id, area_id: a.area_id })) })}>Editar</button>
+              <button className="btn btn-link" onClick={() => setForm({ id: u.id, email: u.email, emailOriginal: u.email, nombre: u.nombre ?? '', perfil: u.perfil, empleadoCodigo: u.empleado_codigo ?? '', puedeOtros: u.puede_registrar_otros, alcance: u.alcance.map(a => ({ modulo_id: a.modulo_id, area_id: a.area_id })) })}>Editar</button>
               {u.id !== sesion?.usuario?.id && <button className="btn btn-link" disabled={ocupado} onClick={() => activar(u, !u.activo)}>{u.activo ? 'Desactivar' : 'Reactivar'}</button>}
             </td>
           </tr>
