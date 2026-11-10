@@ -9,6 +9,7 @@ import Inicio from './pages/Inicio';
 import ModuloInicio from './pages/ModuloInicio';
 import Registro from './pages/Registro';
 import Area from './pages/Area';
+import Inventario from './pages/Inventario';
 import Mantenimiento from './pages/Mantenimiento';
 import Escanear from './pages/Escanear';
 import FichaMaquina from './pages/FichaMaquina';
@@ -101,6 +102,7 @@ export default function App() {
             <Route path="/trabajo/:id" element={<Protegida><Trabajo /></Protegida>} />
             <Route path="/trabajos" element={<Protegida><Trabajos /></Protegida>} />
             <Route path="/historial" element={<Protegida gestion><Historial /></Protegida>} />
+            <Route path="/inventario/:codigo" element={<Protegida><Inventario /></Protegida>} />
             <Route path="/area/:codigo" element={<Protegida gestion><Area /></Protegida>} />
             <Route path="/mantenimiento" element={<Protegida gestion><Mantenimiento /></Protegida>} />
             <Route path="/admin" element={<Protegida admin><Panel /></Protegida>} />
