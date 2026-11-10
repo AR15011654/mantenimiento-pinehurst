@@ -6,14 +6,14 @@ import { Aviso, Cargando } from '../ui';
 import LectorQR from '../LectorQR';
 import { descargarExcel, leerLibro, textoCelda } from '../excel';
 import { ETIQUETA_MODULO } from '../ModuloImagen';
-import { Articulo, cargarArticulos, dinero, num, SelectorArticulo } from '../inventario';
+import { Articulo, cargarArticulos, dinero, num, SelectorArticulo, useVerPrecios } from '../inventario';
 
 type Pestana = 'existencias' | 'entrada' | 'salida' | 'movimientos' | 'catalogo';
 type Mov = {
   id: number; tipo: 'entrada' | 'salida'; cantidad: number; precio_unitario: number | null; costo_total: number | null; existencia_despues: number;
   snap_empleado_codigo: string | null; snap_empleado_nombre: string | null; snap_maquina_qr: string | null; snap_maquina: string | null;
   mantenimiento_id: string | null; observacion: string | null; creado_en: string;
-  articulo: { codigo: string; descripcion: string } | null;
+  art_codigo: string; art_descripcion: string;
 };
 const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const numero = (t: string) => Number(t.replace(/[$,\s]/g, ''));
@@ -68,6 +68,7 @@ export default function Inventario() {
 function Existencias({ articulos, nombre }: { articulos: Articulo[]; nombre: string }) {
   const [buscar, setBuscar] = useState('');
   const [soloCon, setSoloCon] = useState(false);
+  const verPrecios = useVerPrecios();
   const lista = useMemo(() => {
     const t = norm(buscar.trim());
     return articulos.filter(a => (!soloCon || a.existencia > 0) && (!t || norm(`${a.codigo} ${a.descripcion} ${a.codigo_ax ?? ''} ${a.ubicacion ?? ''}`).includes(t)));
@@ -81,16 +82,17 @@ function Existencias({ articulos, nombre }: { articulos: Articulo[]; nombre: str
       <div className="rejilla-kpi">
         <div className="kpi"><span>{articulos.length}</span>Repuestos en catálogo</div>
         <div className="kpi"><span>{conExist}</span>Con existencia</div>
-        <div className="kpi"><span>{dinero(valor)}</span>Valor en existencia</div>
-        <div className={`kpi ${sinPrecio ? 'alerta' : ''}`}><span>{sinPrecio}</span>Sin precio registrado</div>
+        {verPrecios && <div className="kpi"><span>{dinero(valor)}</span>Valor en existencia</div>}
+        {verPrecios && <div className={`kpi ${sinPrecio ? 'alerta' : ''}`}><span>{sinPrecio}</span>Sin precio registrado</div>}
       </div>
       <div className="filtros-inv">
         <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar código, nombre, AX o ubicación" />
         <label className="check"><input type="checkbox" checked={soloCon} onChange={e => setSoloCon(e.target.checked)} /> Solo con existencia</label>
         <button className="btn btn-sec btn-chico" onClick={() => descargarExcel(`inventario_${nombre.replace(/[^A-Za-z]+/g, '_')}.xlsx`, 'Inventario', [
           { titulo: 'Codigo Articulo', clave: 'codigo', ancho: 14 }, { titulo: '# Parte', clave: 'descripcion', ancho: 42 }, { titulo: 'Codigo AX', clave: 'codigo_ax', ancho: 16 },
-          { titulo: 'UBICACION', clave: 'ubicacion' }, { titulo: 'Cantidad', clave: 'existencia', ancho: 10 }, { titulo: 'Precio en Dolares', clave: 'precio_usd', ancho: 16 },
-          { titulo: 'Total', clave: 'total', ancho: 14 }, { titulo: 'Notas', clave: 'notas', ancho: 40 },
+          { titulo: 'UBICACION', clave: 'ubicacion' }, { titulo: 'Cantidad', clave: 'existencia', ancho: 10 },
+          ...(verPrecios ? [{ titulo: 'Precio en Dolares', clave: 'precio_usd', ancho: 16 }, { titulo: 'Total', clave: 'total', ancho: 14 }] : []),
+          { titulo: 'Notas', clave: 'notas', ancho: 40 },
         ], lista.map(a => ({ ...a, total: a.precio_usd !== null ? Math.round(a.existencia * a.precio_usd * 100) / 100 : '' })))}>Descargar Excel</button>
       </div>
       <p className="nota">{lista.length} de {articulos.length} repuestos</p>
@@ -99,7 +101,7 @@ function Existencias({ articulos, nombre }: { articulos: Articulo[]; nombre: str
           <li key={a.id} className="item">
             <div className="inv-fila">
               <div><b>{a.codigo}</b> · {a.descripcion}
-                <span className="item-sub">{a.codigo_ax ? `AX ${a.codigo_ax}` : 'Sin código AX'}{a.ubicacion ? ` · ${a.ubicacion}` : ''} · {dinero(a.precio_usd)}</span>
+                <span className="item-sub">{a.codigo_ax ? `AX ${a.codigo_ax}` : 'Sin código AX'}{a.ubicacion ? ` · ${a.ubicacion}` : ''}{verPrecios ? ` · ${dinero(a.precio_usd)}` : ''}</span>
                 {a.notas && <span className="item-sub">Nota: {a.notas}</span>}
               </div>
               <div className={`inv-cant ${a.existencia > 0 ? '' : 'cero'}`}>{num(a.existencia)}</div>
@@ -115,6 +117,7 @@ function Existencias({ articulos, nombre }: { articulos: Articulo[]; nombre: str
 function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 'salida'; articulos: Articulo[]; moduloId: string; onHecho: () => Promise<void> }) {
   const { sesion } = useSesion();
   const soloPropio = sesion?.usuario?.perfil === 'tecnico' && !sesion?.usuario?.puede_registrar_otros;
+  const verPrecios = useVerPrecios();
   const [art, setArt] = useState<Articulo | null>(null);
   const [cantidad, setCantidad] = useState('');
   const [precio, setPrecio] = useState('');
@@ -149,7 +152,7 @@ function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 
     if (!codEmp.trim()) { setError('Escriba el código del empleado.'); return; }
     if (tipo === 'salida' && qr.trim() && !maquina) { setError('La máquina escrita no se encontró. Corríjala o deje el campo vacío.'); return; }
     let pre: number | null = null;
-    if (tipo === 'entrada' && precio.trim()) {
+    if (tipo === 'entrada' && verPrecios && precio.trim()) {
       pre = numero(precio);
       if (!Number.isFinite(pre) || pre < 0) { setError('El precio no es válido.'); return; }
     }
@@ -193,7 +196,7 @@ function Movimiento({ tipo, articulos, moduloId, onHecho }: { tipo: 'entrada' | 
         <input value={cantidad} inputMode="decimal" placeholder="0" onChange={e => setCantidad(e.target.value)} />
         {tipo === 'salida' && art && <span className="nota">Disponible: {num(art.existencia)}</span>}
       </div>
-      {tipo === 'entrada' && (
+      {tipo === 'entrada' && verPrecios && (
         <div className="campo">
           <span className="campo-etiqueta">PRECIO UNITARIO ($)</span>
           <input value={precio} inputMode="decimal" placeholder={art?.precio_usd !== null && art?.precio_usd !== undefined ? `Catálogo: ${art.precio_usd}` : '0.00'} onChange={e => setPrecio(e.target.value)} />
@@ -226,11 +229,12 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
   const [error, setError] = useState<string | null>(null);
   const [tipo, setTipo] = useState<'' | 'entrada' | 'salida'>('');
   const [buscar, setBuscar] = useState('');
+  const verPrecios = useVerPrecios();
 
   useEffect(() => {
     (async () => {
-      const r = await supabase.from('inv_movimientos')
-        .select('id, tipo, cantidad, precio_unitario, costo_total, existencia_despues, snap_empleado_codigo, snap_empleado_nombre, snap_maquina_qr, snap_maquina, mantenimiento_id, observacion, creado_en, articulo:inv_articulos(codigo, descripcion)')
+      const r = await supabase.from('inv_v_movimientos')
+        .select('id, tipo, cantidad, precio_unitario, costo_total, existencia_despues, snap_empleado_codigo, snap_empleado_nombre, snap_maquina_qr, snap_maquina, mantenimiento_id, observacion, creado_en, art_codigo, art_descripcion')
         .eq('modulo_id', moduloId).order('id', { ascending: false }).limit(1000);
       if (r.error) setError(mensajeError(r.error)); else setMovs(r.data as unknown as Mov[]);
     })();
@@ -239,13 +243,13 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
   const lista = useMemo(() => {
     const t = norm(buscar.trim());
     return (movs ?? []).filter(m => (!tipo || m.tipo === tipo) &&
-      (!t || norm(`${m.articulo?.codigo} ${m.articulo?.descripcion} ${m.snap_empleado_codigo} ${m.snap_empleado_nombre} ${m.snap_maquina_qr ?? ''} ${m.snap_maquina ?? ''} ${m.observacion ?? ''}`).includes(t)));
+      (!t || norm(`${m.art_codigo} ${m.art_descripcion} ${m.snap_empleado_codigo} ${m.snap_empleado_nombre} ${m.snap_maquina_qr ?? ''} ${m.snap_maquina ?? ''} ${m.observacion ?? ''}`).includes(t)));
   }, [movs, tipo, buscar]);
 
   function exportar() {
     const filas = lista.map(m => ({
       id: m.id, fecha: fechaHora(m.creado_en), tipo: m.tipo === 'entrada' ? 'ENTRADA' : 'SALIDA', cod_emp: m.snap_empleado_codigo, emp: m.snap_empleado_nombre,
-      qr: m.snap_maquina_qr, maquina: m.snap_maquina, cod: m.articulo?.codigo, rep: m.articulo?.descripcion, cant: Number(m.cantidad),
+      qr: m.snap_maquina_qr, maquina: m.snap_maquina, cod: m.art_codigo, rep: m.art_descripcion, cant: Number(m.cantidad),
       precio: m.precio_unitario === null ? '' : Number(m.precio_unitario), costo: m.costo_total === null ? '' : Number(m.costo_total),
       exist: Number(m.existencia_despues), obs: m.observacion,
     }));
@@ -253,7 +257,8 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
       { titulo: 'REGISTROID', clave: 'id', ancho: 10 }, { titulo: 'FECHA', clave: 'fecha', ancho: 20 }, { titulo: 'TIPO', clave: 'tipo', ancho: 10 },
       { titulo: 'CODIGO EMPLEADO', clave: 'cod_emp' }, { titulo: 'EMPLEADO', clave: 'emp', ancho: 32 }, { titulo: 'QR MAQUINA', clave: 'qr' },
       { titulo: 'MAQUINA', clave: 'maquina', ancho: 28 }, { titulo: 'CODIGO REPUESTO', clave: 'cod' }, { titulo: 'REPUESTO', clave: 'rep', ancho: 36 },
-      { titulo: 'CANTIDAD', clave: 'cant', ancho: 10 }, { titulo: 'PRECIO UNITARIO', clave: 'precio' }, { titulo: 'COSTO TOTAL', clave: 'costo' },
+      { titulo: 'CANTIDAD', clave: 'cant', ancho: 10 },
+      ...(verPrecios ? [{ titulo: 'PRECIO UNITARIO', clave: 'precio' }, { titulo: 'COSTO TOTAL', clave: 'costo' }] : []),
       { titulo: 'EXISTENCIA DESPUES', clave: 'exist' }, { titulo: 'OBSERVACION', clave: 'obs', ancho: 40 },
     ], filas);
   }
@@ -274,13 +279,13 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
           <li key={m.id} className="item">
             <div className="inv-fila">
               <div>
-                <span className={`mov-tipo ${m.tipo}`}>{m.tipo === 'entrada' ? 'ENTRADA' : 'SALIDA'}</span> <b>{m.articulo?.codigo}</b> · {m.articulo?.descripcion}
+                <span className={`mov-tipo ${m.tipo}`}>{m.tipo === 'entrada' ? 'ENTRADA' : 'SALIDA'}</span> <b>{m.art_codigo}</b> · {m.art_descripcion}
                 <span className="item-sub">{fechaHora(m.creado_en)} · {m.snap_empleado_codigo} {m.snap_empleado_nombre}</span>
                 {(m.snap_maquina_qr || m.mantenimiento_id) && <span className="item-sub">
                   {m.snap_maquina_qr ? `Máquina ${m.snap_maquina_qr}${m.snap_maquina ? ` · ${m.snap_maquina}` : ''}` : ''}
                   {m.mantenimiento_id && <> · <Link to={`/trabajo/${m.mantenimiento_id}`}>Ver trabajo</Link></>}</span>}
                 {m.observacion && <span className="item-sub">{m.observacion}</span>}
-                <span className="item-sub">{dinero(m.costo_total)} · Existencia después: {num(Number(m.existencia_despues))}</span>
+                <span className="item-sub">{verPrecios ? `${dinero(m.costo_total)} · ` : ''}Existencia después: {num(Number(m.existencia_despues))}</span>
               </div>
               <div className={`inv-cant ${m.tipo}`}>{m.tipo === 'entrada' ? '+' : '−'}{num(Number(m.cantidad))}</div>
             </div>

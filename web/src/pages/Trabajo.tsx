@@ -7,9 +7,9 @@ import { Aviso, Cargando, Campo, Dato, Insignia, Titulo } from '../ui';
 type Evento = { id: number; evento: string; estado_anterior: string | null; estado_nuevo: string | null; motivo: string | null; usuario_id: string | null; creado_en: string };
 type Comentario = { id: string; texto: string; usuario_id: string; creado_en: string };
 type Foto = { id: string; ruta: string; creado_en: string; url?: string };
-type Externo = { proveedor: string; costo: number; moneda: string; actualizado_en: string };
+type Externo = { proveedor: string; costo: number | null; moneda: string | null; actualizado_en: string };
 type Documento = { id: string; ruta: string; nombre_original: string | null; tipo_mime: string | null; creado_en: string; url?: string };
-type RepUsado = { id: number; cantidad: number; costo_total: number | null; articulo: { codigo: string; descripcion: string } | null };
+type RepUsado = { id: number; cantidad: number; costo_total: number | null; art_codigo: string; art_descripcion: string };
 type Periodo = { id: number; inicio_en: string; fin_en: string | null };
 type Pendiente = { clave: string; texto: string; error?: string; enviando?: boolean };
 
@@ -33,6 +33,8 @@ export default function Trabajo() {
   const [params] = useSearchParams();
   const { sesion } = useSesion();
   const perfil = sesion?.usuario?.perfil;
+  const verPrecios = perfil === 'admin' || perfil === 'supervisor';
+  const [costoEd, setCostoEd] = useState<{ costo: string; moneda: string } | null>(null);
   const [t, setT] = useState<Mantenimiento | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
@@ -63,9 +65,9 @@ export default function Trabajo() {
         supabase.from('mantenimiento_comentarios').select('*').eq('mantenimiento_id', id).order('creado_en'),
         supabase.from('mantenimiento_fotos').select('*').eq('mantenimiento_id', id).order('creado_en'),
         supabase.from('mantenimiento_periodos').select('*').eq('mantenimiento_id', id).order('id'),
-        supabase.from('mantenimiento_servicio_externo').select('*').eq('mantenimiento_id', id).maybeSingle(),
+        supabase.from('v_servicio_externo').select('*').eq('mantenimiento_id', id).maybeSingle(),
         supabase.from('mantenimiento_documentos').select('*').eq('mantenimiento_id', id).order('creado_en'),
-        supabase.from('inv_movimientos').select('id, cantidad, costo_total, articulo:inv_articulos(codigo, descripcion)').eq('mantenimiento_id', id).eq('tipo', 'salida').order('id'),
+        supabase.from('inv_v_movimientos').select('id, cantidad, costo_total, art_codigo, art_descripcion').eq('mantenimiento_id', id).eq('tipo', 'salida').order('id'),
       ]);
       setReps((rp.data ?? []) as unknown as RepUsado[]);
       setExterno((se.data ?? null) as Externo | null);
@@ -99,10 +101,10 @@ export default function Trabajo() {
     return () => clearInterval(i);
   }, [abierto]);
 
-  async function accion(fn: () => Promise<unknown>, ok: string) {
+  async function accion(fn: () => Promise<unknown>, ok: string): Promise<boolean> {
     setOcupado(true); setAviso(null);
-    try { await fn(); setAviso({ tipo: 'ok', texto: ok }); setMotivo(''); await cargar(); }
-    catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }); }
+    try { await fn(); setAviso({ tipo: 'ok', texto: ok }); setMotivo(''); await cargar(); return true; }
+    catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }); return false; }
     finally { setOcupado(false); }
   }
 
@@ -219,19 +221,40 @@ export default function Trabajo() {
         <section className="tarjeta">
           <h2>Repuestos usados</h2>
           <ul className="lista">{reps.map(r => (
-            <li key={r.id}><b>{Number(r.cantidad).toLocaleString('es-HN')}</b> × {r.articulo?.codigo} · {r.articulo?.descripcion}
-              <span className="nota"> · {r.costo_total === null ? 'sin precio' : '$ ' + Number(r.costo_total).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</span></li>
+            <li key={r.id}><b>{Number(r.cantidad).toLocaleString('es-HN')}</b> × {r.art_codigo} · {r.art_descripcion}
+              {verPrecios && <span className="nota"> · {r.costo_total === null ? 'sin precio' : '$ ' + Number(r.costo_total).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</span>}</li>
           ))}</ul>
-          {reps.some(r => r.costo_total !== null) && <p className="nota">Total: $ {reps.reduce((s, r) => s + Number(r.costo_total ?? 0), 0).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>}
+          {verPrecios && reps.some(r => r.costo_total !== null) && <p className="nota">Total: $ {reps.reduce((s, r) => s + Number(r.costo_total ?? 0), 0).toLocaleString('es-HN', { minimumFractionDigits: 2 })}</p>}
         </section>
       )}
 
       {externo && (
         <section className="tarjeta">
           <h2>Servicio externo</h2>
-          <p><b>Proveedor:</b> {externo.proveedor}<br />
-            <b>Costo:</b> {externo.moneda === 'HNL' ? 'L' : '$'} {Number(externo.costo).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {externo.moneda}</p>
-          {docs.length > 0 ? (
+          <p><b>Proveedor:</b> {externo.proveedor}
+            {verPrecios && <><br /><b>Costo:</b> {externo.costo === null ? <span className="nota">pendiente de registrar</span>
+              : <>{externo.moneda === 'HNL' ? 'L' : '$'} {Number(externo.costo).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {externo.moneda}</>}
+              {!costoEd && (t.estado === 'en_proceso' || t.estado === 'completado') &&
+                <> <button className="btn btn-link" onClick={() => setCostoEd({ costo: externo.costo === null ? '' : String(externo.costo), moneda: externo.moneda ?? 'USD' })}>{externo.costo === null ? 'Registrar costo' : 'Corregir costo'}</button></>}</>}
+          </p>
+          {verPrecios && costoEd && (
+            <div className="campo-costo">
+              <input value={costoEd.costo} inputMode="decimal" placeholder="0.00" onChange={e => setCostoEd({ ...costoEd, costo: e.target.value })} />
+              <select value={costoEd.moneda} onChange={e => setCostoEd({ ...costoEd, moneda: e.target.value })} aria-label="Moneda">
+                <option value="USD">USD $</option><option value="HNL">HNL L</option>
+              </select>
+              <div className="acciones">
+                <button className="btn btn-pri" disabled={ocupado} onClick={() => {
+                  const txt = costoEd.costo.replace(/[$,\s]/g, ''); const n = Number(txt);
+                  if (txt && (!Number.isFinite(n) || n < 0)) { setAviso({ tipo: 'error', texto: 'El costo no es válido.' }); return; }
+                  accion(() => rpc('registrar_servicio_externo', { p_mantenimiento_id: t.id, p_proveedor: externo.proveedor, p_costo: txt ? n : null, p_moneda: txt ? costoEd.moneda : null }), 'Costo del servicio externo guardado.')
+                    .then(bien => { if (bien) setCostoEd(null); });
+                }}>Guardar costo</button>
+                <button className="btn btn-sec" onClick={() => setCostoEd(null)}>Cancelar</button>
+              </div>
+            </div>
+          )}
+          {!verPrecios ? (docs.length > 0 && <p className="nota">Cotización o factura adjunta ({docs.length}).</p>) : docs.length > 0 ? (
             <div className="doc-lista">
               {docs.map(d => d.url
                 ? <a key={d.id} href={d.url} target="_blank" rel="noreferrer">{d.tipo_mime === 'application/pdf' ? '📄' : '🖼️'} {d.nombre_original ?? 'Documento'}</a>

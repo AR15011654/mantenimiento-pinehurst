@@ -4,7 +4,7 @@ import { fecha, fechaHora, FRECUENCIAS, Maquina, mensajeError, nuevaClave, rpc, 
 import { useModulo, useSesion } from '../sesion';
 import { Aviso } from '../ui';
 import LectorQR from '../LectorQR';
-import { Articulo, cargarArticulos, num, SelectorArticulo } from '../inventario';
+import { Articulo, cargarArticulos, num, SelectorArticulo, useVerPrecios } from '../inventario';
 
 type Mecanico = { encontrado: boolean; id?: string; codigo?: string; nombre?: string; autorizado?: boolean; mensaje: string };
 type Trabajo = { id: string; folio: number; inicio_en: string | null; retomado?: boolean };
@@ -51,6 +51,7 @@ export default function Registro() {
   const [finalizando, setFinalizando] = useState(false);
   const [errFin, setErrFin] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const verPrecios = useVerPrecios();
   const [externo, setExterno] = useState<'' | 'si' | 'no'>('');
   const [proveedor, setProveedor] = useState('');
   const [costo, setCosto] = useState('');
@@ -175,7 +176,7 @@ export default function Registro() {
     const monto = Number(montoTxt);
     if (externo === 'si') {
       if (!proveedor.trim()) { setErrFin('Escriba el proveedor del servicio externo.'); return; }
-      if (!montoTxt || !Number.isFinite(monto) || monto < 0) { setErrFin('Escriba el costo del servicio externo.'); return; }
+      if (verPrecios && montoTxt && (!Number.isFinite(monto) || monto < 0)) { setErrFin('El costo del servicio externo no es válido.'); return; }
     }
     setFinalizando(true); setErrFin(null);
     try {
@@ -201,7 +202,8 @@ export default function Registro() {
       }
       if (repuestos.length) { setRepuestos(rs => [...rs]); cargarInventario(); }
       if (externo === 'si') {
-        await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim(), p_costo: monto, p_moneda: moneda });
+        await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim(),
+          p_costo: verPrecios && montoTxt ? monto : null, p_moneda: verPrecios && montoTxt ? moneda : null });
         for (const d of docs) {
           if (d.subido) continue;
           const ruta = `${trabajo.id}/docs/${d.clave}.${d.ext}`;
@@ -395,8 +397,8 @@ export default function Registro() {
               <span className="campo-etiqueta">PROVEEDOR<span className="req">*</span></span>
               <input value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor o taller" />
             </div>
-            <div className="campo">
-              <span className="campo-etiqueta">COSTO ($)<span className="req">*</span></span>
+            {verPrecios && <div className="campo">
+              <span className="campo-etiqueta">COSTO ($)</span>
               <div className="campo-costo">
                 <input value={costo} inputMode="decimal" placeholder="0.00" onChange={e => setCosto(e.target.value)} />
                 <select value={moneda} onChange={e => setMoneda(e.target.value as 'USD' | 'HNL')} aria-label="Moneda">
@@ -404,7 +406,8 @@ export default function Registro() {
                   <option value="HNL">HNL L</option>
                 </select>
               </div>
-            </div>
+              <span className="nota">Puede dejarlo vacío y registrarlo después en el detalle del trabajo.</span>
+            </div>}
             <div className="campo">
               <span className="campo-etiqueta">COTIZACIÓN O FACTURA</span>
               <div className="doc-botones">
