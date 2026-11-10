@@ -195,7 +195,7 @@ export default function Mantenimiento() {
       <div className="rejilla-app chica">
         {modulos.map(m => (
           <Link key={m.id} to={`/m/${m.codigo}`} className="tile">
-            <ModuloImagen codigo={m.codigo} etiqueta={m.codigo === 'COSTURA_PD' ? 'COSTURA Y PD' : m.codigo === 'CORTE_BODEGA_STAGING' ? 'CORTE Y BODEGA' : 'SERIGRAFÍA'} />
+            <ModuloImagen codigo={m.codigo} etiqueta={m.codigo === 'COSTURA_PD' ? 'COSTURA Y PD' : m.codigo === 'CORTE_BODEGA_STAGING' ? 'CORTE Y BODEGA' : 'SERIGRAFÍA, BORDADO\nY SUBLIMADO'} />
           </Link>
         ))}
       </div>

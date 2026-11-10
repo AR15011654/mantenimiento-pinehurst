@@ -5,7 +5,7 @@ import InstalarApp from '../InstalarApp';
 
 const CORTO: Record<string, string> = {
   COSTURA_PD: 'COSTURA Y PD',
-  SERIGRAFIA_BORDADO_SUBLIMADO: 'SERIGRAFÍA',
+  SERIGRAFIA_BORDADO_SUBLIMADO: 'SERIGRAFÍA, BORDADO\nY SUBLIMADO',
   CORTE_BODEGA_STAGING: 'CORTE Y BODEGA',
 };
 
@@ -47,7 +47,7 @@ export default function Inicio() {
         {modulos.map(m => (
           <Link key={m.id} to={`/m/${m.codigo}`} className="tile">
             <ModuloImagen codigo={m.codigo} etiqueta={CORTO[m.codigo] ?? m.nombre.toUpperCase()} />
-            <span className="tile-nombre">MANTTO. {CORTO[m.codigo] ?? m.nombre.toUpperCase()}</span>
+            <span className="tile-nombre">MANTTO. {(CORTO[m.codigo] ?? m.nombre.toUpperCase()).replace('\n', ' ')}</span>
           </Link>
         ))}
       </div>
