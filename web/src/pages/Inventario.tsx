@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { fechaHora, Maquina, mensajeError, nuevaClave, rpc, supabase } from '../lib';
+import { fechaHora, Maquina, mensajeError, nuevaClave, rpc, supabase, todas } from '../lib';
 import { useModulo, useSesion } from '../sesion';
 import { Aviso, Cargando } from '../ui';
 import LectorQR from '../LectorQR';
@@ -8,7 +8,7 @@ import { descargarExcel, leerLibro, textoCelda } from '../excel';
 import { ETIQUETA_MODULO } from '../ModuloImagen';
 import { Articulo, cargarArticulos, dinero, num, SelectorArticulo, useVerPrecios } from '../inventario';
 
-type Pestana = 'existencias' | 'entrada' | 'salida' | 'movimientos' | 'catalogo';
+type Pestana = 'existencias' | 'entrada' | 'salida' | 'movimientos' | 'analisis' | 'catalogo';
 type Mov = {
   id: number; tipo: 'entrada' | 'salida'; cantidad: number; precio_unitario: number | null; costo_total: number | null; existencia_despues: number;
   snap_empleado_codigo: string | null; snap_empleado_nombre: string | null; snap_maquina_qr: string | null; snap_maquina: string | null;
@@ -16,6 +16,7 @@ type Mov = {
   art_codigo: string; art_descripcion: string;
 };
 const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const archivoDe = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z]+/g, '_');
 const numero = (t: string) => Number(t.replace(/[$,\s]/g, ''));
 
 /** Inventario de repuestos de un área (módulo): existencias, entradas, salidas, movimientos y catálogo. */
@@ -25,6 +26,7 @@ export default function Inventario() {
   const { sesion } = useSesion();
   const esAdmin = sesion?.usuario?.perfil === 'admin';
   const esTecnico = sesion?.usuario?.perfil === 'tecnico';
+  const gestion = useVerPrecios();
   const [pestana, setPestana] = useState<Pestana>('existencias');
   const [articulos, setArticulos] = useState<Articulo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export default function Inventario() {
   const nombre = (ETIQUETA_MODULO[modulo.codigo] ?? modulo.nombre.toUpperCase()).replace('\n', ' ');
   const activos = (articulos ?? []).filter(a => a.activo);
   const PESTANAS: [Pestana, string][] = [['existencias', 'Existencias'], ['entrada', 'Entrada'], ['salida', 'Salida'], ['movimientos', 'Movimientos'],
+    ...(gestion ? [['analisis', 'Análisis'] as [Pestana, string]] : []),
     ...(esAdmin ? [['catalogo', 'Catálogo'] as [Pestana, string]] : [])];
 
   return (
@@ -59,6 +62,7 @@ export default function Inventario() {
       {articulos && pestana === 'entrada' && <Movimiento tipo="entrada" articulos={activos} moduloId={modulo.id} onHecho={recargar} />}
       {articulos && pestana === 'salida' && <Movimiento tipo="salida" articulos={activos} moduloId={modulo.id} onHecho={recargar} />}
       {pestana === 'movimientos' && <Movimientos moduloId={modulo.id} nombre={nombre} />}
+      {articulos && pestana === 'analisis' && gestion && <Analisis articulos={activos} moduloId={modulo.id} nombre={nombre} />}
       {articulos && pestana === 'catalogo' && esAdmin && <Catalogo moduloId={modulo.id} articulos={articulos} onCambio={recargar} />}
     </main>
   );
@@ -88,7 +92,7 @@ function Existencias({ articulos, nombre }: { articulos: Articulo[]; nombre: str
       <div className="filtros-inv">
         <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar código, nombre, AX o ubicación" />
         <label className="check"><input type="checkbox" checked={soloCon} onChange={e => setSoloCon(e.target.checked)} /> Solo con existencia</label>
-        <button className="btn btn-sec btn-chico" onClick={() => descargarExcel(`inventario_${nombre.replace(/[^A-Za-z]+/g, '_')}.xlsx`, 'Inventario', [
+        <button className="btn btn-sec btn-chico" onClick={() => descargarExcel(`inventario_${archivoDe(nombre)}.xlsx`, 'Inventario', [
           { titulo: 'Codigo Articulo', clave: 'codigo', ancho: 14 }, { titulo: '# Parte', clave: 'descripcion', ancho: 42 }, { titulo: 'Codigo AX', clave: 'codigo_ax', ancho: 16 },
           { titulo: 'UBICACION', clave: 'ubicacion' }, { titulo: 'Cantidad', clave: 'existencia', ancho: 10 },
           ...(verPrecios ? [{ titulo: 'Precio en Dolares', clave: 'precio_usd', ancho: 16 }, { titulo: 'Total', clave: 'total', ancho: 14 }] : []),
@@ -253,7 +257,7 @@ function Movimientos({ moduloId, nombre }: { moduloId: string; nombre: string })
       precio: m.precio_unitario === null ? '' : Number(m.precio_unitario), costo: m.costo_total === null ? '' : Number(m.costo_total),
       exist: Number(m.existencia_despues), obs: m.observacion,
     }));
-    return descargarExcel(`movimientos_${nombre.replace(/[^A-Za-z]+/g, '_')}.xlsx`, 'Movimientos', [
+    return descargarExcel(`movimientos_${archivoDe(nombre)}.xlsx`, 'Movimientos', [
       { titulo: 'REGISTROID', clave: 'id', ancho: 10 }, { titulo: 'FECHA', clave: 'fecha', ancho: 20 }, { titulo: 'TIPO', clave: 'tipo', ancho: 10 },
       { titulo: 'CODIGO EMPLEADO', clave: 'cod_emp' }, { titulo: 'EMPLEADO', clave: 'emp', ancho: 32 }, { titulo: 'QR MAQUINA', clave: 'qr' },
       { titulo: 'MAQUINA', clave: 'maquina', ancho: 28 }, { titulo: 'CODIGO REPUESTO', clave: 'cod' }, { titulo: 'REPUESTO', clave: 'rep', ancho: 36 },
@@ -413,6 +417,110 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
           ))}</tbody>
         </table></div>
       </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- Análisis de stock (gerente y administrador)
+type Estado = 'comprar' | 'abastecido' | 'exceso' | 'sin_consumo';
+const ESTADO: Record<Estado, string> = { comprar: 'Comprar', abastecido: 'Abastecido', exceso: 'Exceso de inventario', sin_consumo: 'Sin consumo ni existencia' };
+const DIAS = 60;           // ventana: últimos 2 meses
+const MESES_VENTANA = 2;
+
+type FilaAn = Articulo & { entProm: number; salProm: number; meses: number | null; estado: Estado; sugerido: number; costoSug: number | null };
+
+function Analisis({ articulos, moduloId, nombre }: { articulos: Articulo[]; moduloId: string; nombre: string }) {
+  const [movs, setMovs] = useState<{ articulo_id: string; tipo: string; cantidad: number }[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [objetivo, setObjetivo] = useState(3);           // meses a cubrir al comprar
+  const [filtro, setFiltro] = useState<Estado | ''>('');
+  const [buscar, setBuscar] = useState('');
+  const desde = useMemo(() => new Date(Date.now() - DIAS * 86400000), []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await todas<{ articulo_id: string; tipo: string; cantidad: number }>(() => supabase.from('inv_v_movimientos')
+          .select('articulo_id, tipo, cantidad').eq('modulo_id', moduloId).gte('creado_en', desde.toISOString()).order('id'));
+        setMovs(r);
+      } catch (e) { setError(mensajeError(e)); }
+    })();
+  }, [moduloId, desde]);
+
+  const filas = useMemo<FilaAn[]>(() => {
+    if (!movs) return [];
+    const ent: Record<string, number> = {}, sal: Record<string, number> = {};
+    movs.forEach(m => { const d = m.tipo === 'entrada' ? ent : sal; d[m.articulo_id] = (d[m.articulo_id] ?? 0) + Number(m.cantidad); });
+    return articulos.map(a => {
+      const entProm = (ent[a.id] ?? 0) / MESES_VENTANA;
+      const salProm = (sal[a.id] ?? 0) / MESES_VENTANA;
+      const meses = salProm > 0 ? a.existencia / salProm : null;
+      const estado: Estado = salProm > 0
+        ? (meses! < 2 ? 'comprar' : meses! <= 3 ? 'abastecido' : 'exceso')
+        : (a.existencia > 0 ? 'exceso' : 'sin_consumo');
+      const sugerido = estado === 'comprar' ? Math.max(0, Math.ceil(salProm * objetivo - a.existencia)) : 0;
+      return { ...a, entProm, salProm, meses, estado, sugerido, costoSug: a.precio_usd !== null ? Math.round(sugerido * a.precio_usd * 100) / 100 : null };
+    });
+  }, [movs, articulos, objetivo]);
+
+  if (error) return <Aviso tipo="error">{error}</Aviso>;
+  if (!movs) return <Cargando texto="Calculando…" />;
+
+  const cuenta = (e: Estado) => filas.filter(f => f.estado === e).length;
+  const t = norm(buscar.trim());
+  const visibles = filas.filter(f => (!filtro || f.estado === filtro) && (!t || norm(`${f.codigo} ${f.descripcion} ${f.codigo_ax ?? ''}`).includes(t)))
+    .sort((a, b) => (a.meses ?? Infinity) - (b.meses ?? Infinity));
+  const comprar = filas.filter(f => f.sugerido > 0);
+  const totalCompra = comprar.reduce((s, f) => s + (f.costoSug ?? 0), 0);
+  const sinPrecioCompra = comprar.filter(f => f.costoSug === null).length;
+  const fmtMeses = (m: number | null) => m === null ? '—' : m.toLocaleString('es-HN', { maximumFractionDigits: 1 });
+  const hoy = new Date().toISOString().slice(0, 10);
+  const base = archivoDe(nombre);
+  const columnas = [
+    { titulo: 'Codigo Articulo', clave: 'codigo', ancho: 14 }, { titulo: '# Parte', clave: 'descripcion', ancho: 40 }, { titulo: 'Codigo AX', clave: 'codigo_ax', ancho: 16 },
+    { titulo: 'Entrada prom. mensual', clave: 'ent' }, { titulo: 'Salida prom. mensual', clave: 'sal' }, { titulo: 'Inventario actual', clave: 'exist' },
+    { titulo: 'Stock en meses', clave: 'meses' }, { titulo: 'Punto de reorden', clave: 'reorden' }, { titulo: 'Estado', clave: 'estado', ancho: 24 },
+    { titulo: 'Cantidad sugerida a comprar', clave: 'sug', ancho: 16 }, { titulo: 'Precio en Dolares', clave: 'precio' }, { titulo: 'Costo estimado compra', clave: 'costo', ancho: 16 },
+  ];
+  const aExcel = (fs: FilaAn[]) => fs.map(f => ({
+    codigo: f.codigo, descripcion: f.descripcion, codigo_ax: f.codigo_ax, ent: Math.round(f.entProm * 100) / 100, sal: Math.round(f.salProm * 100) / 100,
+    exist: f.existencia, meses: f.meses === null ? 'Sin consumo' : Math.round(f.meses * 10) / 10, reorden: 'Por definir', estado: ESTADO[f.estado],
+    sug: f.sugerido, precio: f.precio_usd ?? '', costo: f.costoSug ?? '',
+  }));
+
+  return (
+    <section>
+      <p className="nota">Movimientos de los últimos 2 meses ({fechaHora(desde.toISOString()).split(',')[0]} a hoy). Promedio mensual = total del período ÷ 2.
+        Stock en meses = inventario actual ÷ salida promedio mensual. Comprar: menos de 2 meses · Abastecido: de 2 a 3 meses · Exceso: más de 3 meses o existencia sin salidas.</p>
+      {movs.length === 0 && <Aviso tipo="info">Todavía no hay entradas ni salidas en los últimos 2 meses: el análisis será útil cuando se registren movimientos.</Aviso>}
+      <div className="rejilla-kpi">
+        <button className={`kpi kpi-btn ${filtro === 'comprar' ? 'sel' : ''} ${cuenta('comprar') ? 'malo' : ''}`} onClick={() => setFiltro(filtro === 'comprar' ? '' : 'comprar')}><span>{cuenta('comprar')}</span>Comprar</button>
+        <button className={`kpi kpi-btn ${filtro === 'abastecido' ? 'sel' : ''}`} onClick={() => setFiltro(filtro === 'abastecido' ? '' : 'abastecido')}><span>{cuenta('abastecido')}</span>Abastecido</button>
+        <button className={`kpi kpi-btn ${filtro === 'exceso' ? 'sel' : ''} ${cuenta('exceso') ? 'alerta' : ''}`} onClick={() => setFiltro(filtro === 'exceso' ? '' : 'exceso')}><span>{cuenta('exceso')}</span>Exceso de inventario</button>
+        <button className={`kpi kpi-btn ${filtro === 'sin_consumo' ? 'sel' : ''}`} onClick={() => setFiltro(filtro === 'sin_consumo' ? '' : 'sin_consumo')}><span>{cuenta('sin_consumo')}</span>Sin consumo ni existencia</button>
+      </div>
+      <div className="filtros-inv">
+        <input value={buscar} onChange={e => setBuscar(e.target.value)} placeholder="Buscar código, nombre o AX" />
+        <label className="check">Comprar para cubrir
+          <select value={objetivo} onChange={e => setObjetivo(Number(e.target.value))}><option value={2}>2 meses</option><option value={3}>3 meses</option></select></label>
+        <button className="btn btn-pri btn-chico" disabled={!comprar.length}
+          onClick={() => descargarExcel(`compra_sugerida_${base}_${hoy}.xlsx`, 'Compra sugerida', columnas, aExcel(comprar))}>Descargar compra sugerida ({comprar.length})</button>
+        <button className="btn btn-sec btn-chico" onClick={() => descargarExcel(`analisis_stock_${base}_${hoy}.xlsx`, 'Analisis', columnas, aExcel(visibles))}>Descargar análisis</button>
+      </div>
+      {comprar.length > 0 && <p className="nota">Compra sugerida: {comprar.length} repuestos · costo estimado {dinero(totalCompra)}{sinPrecioCompra ? ` (sin contar ${sinPrecioCompra} sin precio)` : ''}.</p>}
+      <div className="tabla-scroll alto"><table className="tabla">
+        <thead><tr><th>Código</th><th>Repuesto</th><th>Entrada prom./mes</th><th>Salida prom./mes</th><th>Inventario</th><th>Stock (meses)</th><th>Punto de reorden</th><th>Estado</th><th>Sugerido comprar</th></tr></thead>
+        <tbody>{visibles.map(f => (
+          <tr key={f.id}>
+            <td>{f.codigo}</td><td>{f.descripcion}</td>
+            <td className="num">{num(f.entProm)}</td><td className="num">{num(f.salProm)}</td><td className="num">{num(f.existencia)}</td>
+            <td className="num">{f.salProm > 0 ? fmtMeses(f.meses) : 'Sin consumo'}</td>
+            <td className="nota">Por definir</td>
+            <td><span className={`est-stock ${f.estado}`}>{ESTADO[f.estado]}</span></td>
+            <td className="num">{f.sugerido ? <b>{num(f.sugerido)}</b> : '—'}</td>
+          </tr>
+        ))}</tbody>
+      </table></div>
     </section>
   );
 }
