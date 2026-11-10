@@ -197,3 +197,4 @@ textarea { resize: vertical; }
 .doc-pdf { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; aspect-ratio: 1; padding: 6px; border: 1px solid var(--borde); border-radius: 6px; background: #fff; font-size: .75rem; text-align: center; word-break: break-all; overflow: hidden; }
 .doc-pdf b { color: #c62828; font-size: 1.1rem; }
 .doc-lista { display: flex; flex-direction: column; gap: 6px; }
+.btn-externo { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 18px; }
