@@ -310,17 +310,11 @@ export default function Registro() {
           )}
         </div>
 
-        <div className="campo">
-          <span className="campo-etiqueta">SERVICIO EXTERNO</span>
-          <div className="opciones-tipo" role="radiogroup" aria-label="Servicio externo">
-            {(['si', 'no'] as const).map(v => (
-              <button type="button" key={v} role="radio" aria-checked={externo === v}
-                className={`btn btn-opcion ${externo === v ? 'activo' : ''}`} onClick={() => setExterno(v)}>
-                {v === 'si' ? 'SÍ' : 'NO'}
-              </button>
-            ))}
-          </div>
-        </div>
+        <button type="button" aria-expanded={externo === 'si'}
+          className={`btn btn-opcion btn-externo ${externo === 'si' ? 'activo' : ''}`}
+          onClick={() => setExterno(externo === 'si' ? '' : 'si')}>
+          <span>SERVICIO EXTERNO</span><span aria-hidden="true">{externo === 'si' ? '▲' : '▼'}</span>
+        </button>
 
         {externo === 'si' && (
           <div className="bloque-externo">
