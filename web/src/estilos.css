@@ -187,3 +187,4 @@ textarea { resize: vertical; }
 .instalar-texto { flex: 1; font-size: .92rem; } .instalar-texto .btn { margin-top: 6px; }
 .instalar-cerrar { border: none; background: none; font-size: 1.1rem; color: var(--suave); cursor: pointer; padding: 6px; }
 .marca::before { content: ''; display: inline-block; width: 22px; height: 22px; margin-right: 8px; vertical-align: -5px; background: url(/icono-192.png) center/cover; border-radius: 5px; }
+.tile-nombre { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }

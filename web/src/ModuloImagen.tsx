@@ -23,7 +23,7 @@ function Serigrafia() {
       <rect x="38" y="42" width="84" height="22" rx="2" fill={CLARO} opacity=".55" />
       <path d="M52 16 L122 24 L118 34 L48 26 Z" fill={VERDE} />
       <rect x="82" y="8" width="8" height="14" rx="2" fill={VERDE} transform="rotate(8 86 15)" />
-      <circle cx="62" cy="76" r="3" fill={VERDE} /><circle cx="80" cy="80" r="3" fill={VERDE} /><circle cx="98" cy="76" r="3" fill={VERDE} />
+      <circle cx="62" cy="75" r="3" fill={VERDE} /><circle cx="80" cy="78" r="3" fill={VERDE} /><circle cx="98" cy="75" r="3" fill={VERDE} />
     </g>
   );
 }
@@ -73,13 +73,24 @@ function Generico() {
 export default function ModuloImagen({ codigo, etiqueta }: { codigo: string; etiqueta: string }) {
   const Dibujo = codigo === 'COSTURA_PD' ? Costura : codigo === 'SERIGRAFIA_BORDADO_SUBLIMADO' ? Serigrafia : codigo === 'CORTE_BODEGA_STAGING' ? Corte
     : codigo === 'MANTENIMIENTO' ? Mantenimiento : codigo === 'INVENTARIO' ? Inventario : Generico;
+  // Un salto de línea (\n) en la etiqueta la muestra en dos renglones.
+  const lineas = etiqueta.split('\n');
   return (
     <svg viewBox="0 0 160 120" className="mod-img" role="img" aria-label={etiqueta}>
       <rect width="160" height="120" rx="14" fill={FONDO} />
       <rect y="112" width="160" height="8" fill={VERDE} />
       <Dibujo />
-      <rect x="14" y="88" width="132" height="20" rx="4" fill={AZUL} />
-      <text x="80" y="102" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700" fontFamily="system-ui, sans-serif">{etiqueta}</text>
+      {lineas.length > 1 ? (
+        <>
+          <rect x="8" y="84" width="144" height="27" rx="4" fill={AZUL} />
+          {lineas.map((l, i) => <text key={i} x="80" y={95 + i * 11} textAnchor="middle" fill="#fff" fontSize="9.5" fontWeight="700" fontFamily="system-ui, sans-serif">{l}</text>)}
+        </>
+      ) : (
+        <>
+          <rect x="14" y="88" width="132" height="20" rx="4" fill={AZUL} />
+          <text x="80" y="102" textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700" fontFamily="system-ui, sans-serif">{etiqueta}</text>
+        </>
+      )}
     </svg>
   );
 }
