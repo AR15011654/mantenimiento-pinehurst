@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase, todas } from './lib';
 
 export type Articulo = {
@@ -30,6 +30,16 @@ export function SelectorArticulo({ articulos, elegido, onElegir, disabled, mostr
     if (!t) return [];
     return articulos.filter(a => norm(`${a.codigo} ${a.descripcion} ${a.codigo_ax ?? ''}`).includes(t)).slice(0, 8);
   }, [texto, articulos]);
+  // Si lo escrito (o escaneado) es exactamente un código o código AX único, se elige solo.
+  const exacto = useMemo(() => {
+    const t = texto.trim().toUpperCase();
+    if (!t) return null;
+    const porCodigo = articulos.filter(a => a.codigo.toUpperCase() === t);
+    const lista = porCodigo.length ? porCodigo : articulos.filter(a => (a.codigo_ax ?? '').toUpperCase() === t);
+    return lista.length === 1 ? lista[0] : null;
+  }, [texto, articulos]);
+  const elegible = (a: Articulo) => mostrarSinExistencia || a.existencia > 0;
+  useEffect(() => { if (exacto && !elegido && elegible(exacto)) { onElegir(exacto); setTexto(''); } }, [exacto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (elegido) {
     return (
@@ -43,7 +53,15 @@ export function SelectorArticulo({ articulos, elegido, onElegir, disabled, mostr
   }
   return (
     <div className="art-buscar">
-      <input value={texto} disabled={disabled} onChange={e => setTexto(e.target.value)} placeholder="Buscar por código, nombre o código AX" />
+      <input value={texto} disabled={disabled} onChange={e => setTexto(e.target.value)} placeholder="Buscar por código, nombre o código AX"
+        onKeyDown={e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const disponibles = resultados.filter(elegible);
+          if (disponibles.length === 1) { onElegir(disponibles[0]); setTexto(''); }
+        }} />
+      {resultados.length > 0 && <span className="nota">Toque el repuesto para elegirlo.</span>}
+      {exacto && !elegible(exacto) && <span className="nota">{exacto.codigo} no tiene existencia.</span>}
       {resultados.length > 0 && (
         <div className="art-resultados">
           {resultados.map(a => {
