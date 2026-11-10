@@ -24,9 +24,10 @@ export default function Area() {
         <h1>{nombre}</h1>
       </div>
       <div className="rejilla-app">
-        <Link to={`/mantenimiento?m=${modulo.codigo}`} className="tile">
+        {/* El panel de indicadores es solo del administrador; el gerente entra directo a registrar. */}
+        <Link to={sesion?.usuario?.perfil === 'admin' ? `/mantenimiento?m=${modulo.codigo}` : `/m/${modulo.codigo}`} className="tile">
           <ModuloImagen codigo="MANTENIMIENTO" etiqueta="MANTENIMIENTO" />
-          <span className="tile-nombre">Registro, programación y avance</span>
+          <span className="tile-nombre">{sesion?.usuario?.perfil === 'admin' ? 'Registro, programación, avance y costos' : 'Registrar mantenimiento'}</span>
         </Link>
         {conInventario ? (
           <Link to={`/inventario/${modulo.codigo}`} className="tile">

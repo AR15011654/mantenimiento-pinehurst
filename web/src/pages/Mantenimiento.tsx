@@ -54,7 +54,7 @@ function Barra({ valor, max, texto }: { valor: number; max: number; texto?: stri
   );
 }
 
-/** Dashboard de mantenimiento para gerentes de área y administrador. Todo se limita a las áreas autorizadas (RLS). */
+/** Dashboard de mantenimiento (solo administrador). Todo se limita a las áreas autorizadas (RLS). */
 export default function Mantenimiento() {
   const { sesion } = useSesion();
   const modulos = sesion?.modulos ?? [];
@@ -69,6 +69,7 @@ export default function Mantenimiento() {
   const [abiertos, setAbiertos] = useState<{ en_proceso: number }>({ en_proceso: 0 });
   const [error, setError] = useState<string | null>(null);
   const [listaProg, setListaProg] = useState<Estado>('vencida');
+  const [costos, setCostos] = useState<{ rep: Record<string, number>; usd: Record<string, number>; hnl: Record<string, number>; pendiente: Record<string, number> } | null>(null);
   const areas = modulos.find(m => m.id === modulo)?.areas ?? [];
   // Al llegar desde un área (o volver al menú general) se ajusta el filtro.
   const codigoArea = params.get('m');
@@ -93,6 +94,30 @@ export default function Mantenimiento() {
       // Las máquinas descartadas no cuentan para la programación.
       setMaqs(m.filter(x => (x.estado_inventario ?? '').toUpperCase() !== 'DESCARTADO'));
       setTrabs(t);
+      // Costos de los trabajos finalizados en el período: repuestos usados (inventario) + servicio externo.
+      setCostos(null);
+      const ids = t.map(x => x.id);
+      const porTrab = new Map(t.map(x => [x.id, x.maquina_id]));
+      const rep: Record<string, number> = {}, usd: Record<string, number> = {}, hnl: Record<string, number> = {}, pendiente: Record<string, number> = {};
+      for (let i = 0; i < ids.length; i += 150) {
+        const lote = ids.slice(i, i + 150);
+        const [mv, se] = await Promise.all([
+          supabase.from('inv_v_movimientos').select('mantenimiento_id, costo_total').eq('tipo', 'salida').in('mantenimiento_id', lote),
+          supabase.from('v_servicio_externo').select('mantenimiento_id, costo, moneda').in('mantenimiento_id', lote),
+        ]);
+        if (mv.error) throw mv.error;
+        if (se.error) throw se.error;
+        (mv.data ?? []).forEach((x: { mantenimiento_id: string; costo_total: number | null }) => {
+          const mq = porTrab.get(x.mantenimiento_id)!; rep[mq] = (rep[mq] ?? 0) + Number(x.costo_total ?? 0);
+        });
+        (se.data ?? []).forEach((x: { mantenimiento_id: string; costo: number | null; moneda: string | null }) => {
+          const mq = porTrab.get(x.mantenimiento_id)!;
+          if (x.costo === null) pendiente[mq] = (pendiente[mq] ?? 0) + 1;
+          else if (x.moneda === 'HNL') hnl[mq] = (hnl[mq] ?? 0) + Number(x.costo);
+          else usd[mq] = (usd[mq] ?? 0) + Number(x.costo);
+        });
+      }
+      setCostos({ rep, usd, hnl, pendiente });
       const ab = await filtro(supabase.from('mantenimientos').select('estado').eq('estado', 'en_proceso'));
       setAbiertos({ en_proceso: (ab.data ?? []).length });
     } catch (e) { setError(mensajeError(e)); }
@@ -295,6 +320,8 @@ export default function Mantenimiento() {
             )}
           </section>
 
+          <CostosMaquina trabs={trabs!} maqs={maqs!} costos={costos} periodo={`${r.nombre} (${fecha(r.desde)} – ${fecha(r.hasta)})`} />
+
           <section className="tarjeta">
             <h2>Máquinas con más correctivos · {r.nombre}</h2>
             {avance.maquinas.length === 0 ? <p className="nota">Sin correctivos en el período.</p> : (
@@ -309,5 +336,78 @@ export default function Mantenimiento() {
         </>
       )}
     </main>
+  );
+}
+
+// ---------------------------------------------------------------- Costo de mantenimiento por máquina
+const usd = (n: number) => '$ ' + n.toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const lps = (n: number) => 'L ' + n.toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function CostosMaquina({ trabs, maqs, costos, periodo }: {
+  trabs: Trab[]; maqs: MaqProg[];
+  costos: { rep: Record<string, number>; usd: Record<string, number>; hnl: Record<string, number>; pendiente: Record<string, number> } | null; periodo: string;
+}) {
+  const [todasLasMaq, setTodasLasMaq] = useState(false);
+  const filas = useMemo(() => {
+    if (!costos) return [];
+    const info = new Map(maqs.map(m => [m.id, m]));
+    const porMaq: Record<string, { id: string; nombre: string; serie: string; qr: string; area: string; trabajos: number; prev: number; corr: number }> = {};
+    trabs.forEach(t => {
+      const m = info.get(t.maquina_id);
+      porMaq[t.maquina_id] = porMaq[t.maquina_id] ?? {
+        id: t.maquina_id,
+        nombre: (m ? [m.tipo, m.fabricante].filter(Boolean).join(' · ') : '') || t.snap_maquina || t.snap_asset_id || '—',
+        serie: m?.serie ?? '—', qr: m?.qr ?? t.snap_qr ?? t.snap_asset_id ?? '—', area: m?.area ?? t.snap_area ?? '—', trabajos: 0, prev: 0, corr: 0,
+      };
+      porMaq[t.maquina_id].trabajos++; porMaq[t.maquina_id][t.tipo === 'preventivo' ? 'prev' : 'corr']++;
+    });
+    return Object.values(porMaq).map(f => {
+      const rep = costos.rep[f.id] ?? 0, ext = costos.usd[f.id] ?? 0, extL = costos.hnl[f.id] ?? 0;
+      return { ...f, rep, ext, extL, totalUsd: rep + ext, pendientes: costos.pendiente[f.id] ?? 0 };
+    }).sort((a, b) => b.totalUsd - a.totalUsd || b.extL - a.extL || b.trabajos - a.trabajos);
+  }, [trabs, maqs, costos]);
+
+  const conCosto = filas.filter(f => f.totalUsd > 0 || f.extL > 0);
+  const visibles = todasLasMaq ? filas : conCosto;
+  const tot = filas.reduce((s, f) => ({ rep: s.rep + f.rep, ext: s.ext + f.ext, extL: s.extL + f.extL, pend: s.pend + f.pendientes }), { rep: 0, ext: 0, extL: 0, pend: 0 });
+
+  return (
+    <section className="tarjeta">
+      <h2>Costo de mantenimiento por máquina · {periodo}</h2>
+      {!costos ? <Cargando texto="Calculando costos…" /> : (
+        <>
+          <div className="rejilla-kpi">
+            <div className="kpi"><span>{usd(tot.rep + tot.ext)}</span>Total en dólares</div>
+            <div className="kpi"><span>{usd(tot.rep)}</span>Repuestos usados</div>
+            <div className="kpi"><span>{usd(tot.ext)}</span>Servicio externo (USD)</div>
+            <div className="kpi"><span>{lps(tot.extL)}</span>Servicio externo (HNL)</div>
+          </div>
+          {tot.pend > 0 && <Aviso tipo="alerta">{tot.pend} servicio(s) externo(s) sin costo registrado. Regístrelo en el detalle del trabajo para que se sume aquí.</Aviso>}
+          <div className="filtros-inv">
+            <label className="check"><input type="checkbox" checked={todasLasMaq} onChange={e => setTodasLasMaq(e.target.checked)} /> Mostrar también máquinas con trabajos pero sin costo</label>
+            <button className="btn btn-sec btn-chico" disabled={!visibles.length} onClick={() => descargarExcel(`costos_mantenimiento_${hoyISO()}.xlsx`, 'Costos por maquina', [
+              { titulo: 'MAQUINA', clave: 'nombre', ancho: 32 }, { titulo: 'SERIE', clave: 'serie', ancho: 18 }, { titulo: 'QR', clave: 'qr' }, { titulo: 'AREA', clave: 'area', ancho: 22 },
+              { titulo: 'TRABAJOS', clave: 'trabajos', ancho: 10 }, { titulo: 'PREVENTIVOS', clave: 'prev', ancho: 12 }, { titulo: 'CORRECTIVOS', clave: 'corr', ancho: 12 },
+              { titulo: 'REPUESTOS USD', clave: 'rep', ancho: 14 }, { titulo: 'SERVICIO EXTERNO USD', clave: 'ext', ancho: 18 }, { titulo: 'SERVICIO EXTERNO HNL', clave: 'extL', ancho: 18 },
+              { titulo: 'TOTAL USD', clave: 'totalUsd', ancho: 12 }, { titulo: 'SERV. EXTERNO SIN COSTO', clave: 'pendientes', ancho: 14 },
+            ], visibles.map(f => ({ ...f, rep: Math.round(f.rep * 100) / 100, ext: Math.round(f.ext * 100) / 100, extL: Math.round(f.extL * 100) / 100, totalUsd: Math.round(f.totalUsd * 100) / 100 })))}>Descargar Excel</button>
+          </div>
+          {visibles.length === 0 ? <p className="nota">{filas.length ? 'Ninguna máquina tiene costos registrados en el período.' : 'Sin trabajos finalizados en el período.'}</p> : (
+            <div className="tabla-scroll alto"><table className="tabla">
+              <thead><tr><th>Máquina</th><th>Serie</th><th>QR</th><th>Área</th><th>Trabajos</th><th>Repuestos</th><th>Servicio externo</th><th>Total USD</th></tr></thead>
+              <tbody>{visibles.map(f => (
+                <tr key={f.id}>
+                  <td><Link to={`/maquina/${f.id}`}>{f.nombre}</Link></td><td>{f.serie}</td><td>{f.qr}</td><td>{f.area}</td>
+                  <td className="num">{f.trabajos}</td><td className="num">{f.rep ? usd(f.rep) : '—'}</td>
+                  <td className="num">{[f.ext ? usd(f.ext) : '', f.extL ? lps(f.extL) : '', f.pendientes ? `${f.pendientes} sin costo` : ''].filter(Boolean).join(' + ') || '—'}</td>
+                  <td className="num"><b>{usd(f.totalUsd)}</b></td>
+                </tr>
+              ))}</tbody>
+            </table></div>
+          )}
+          <p className="nota">Incluye los trabajos finalizados en el período. Repuestos: salidas del inventario ligadas al trabajo, al precio del catálogo. Los servicios externos en lempiras se muestran aparte y no se suman al total en dólares.</p>
+        </>
+      )}
+    </section>
   );
 }
