@@ -54,7 +54,7 @@ function Barra({ valor, max, texto }: { valor: number; max: number; texto?: stri
   );
 }
 
-/** Dashboard de mantenimiento (solo administrador). Todo se limita a las áreas autorizadas (RLS). */
+/** Dashboard de mantenimiento (administrador y gerentes). Todo se limita a las áreas autorizadas de cada usuario (RLS). */
 export default function Mantenimiento() {
   const { sesion } = useSesion();
   const modulos = sesion?.modulos ?? [];

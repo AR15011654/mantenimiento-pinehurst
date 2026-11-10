@@ -12,6 +12,7 @@ export default function ModuloInicio() {
   const [ambito, setAmbito] = useAmbito();
   const [conteo, setConteo] = useState<Record<string, number>>({});
   const area = ambito.modulo === modulo?.id ? ambito.area : null;
+  const gestion = sesion?.usuario?.perfil === 'admin' || sesion?.usuario?.perfil === 'supervisor';
 
   useEffect(() => {
     if (modulo && ambito.modulo !== modulo.id) setAmbito({ modulo: modulo.id, area: null });
@@ -29,6 +30,8 @@ export default function ModuloInicio() {
   }, [modulo, area]);
 
   if (!modulo) return <Navigate to="/" replace />;
+  // Gerente y administrador ven el panel de mantenimiento del módulo (solo sus áreas).
+  if (gestion) return <Navigate to={`/mantenimiento?m=${modulo.codigo}`} replace />;
   const perfil = sesion?.usuario?.perfil;
   const qs = `?m=${modulo.id}${area ? `&a=${area}` : ''}`;
 
