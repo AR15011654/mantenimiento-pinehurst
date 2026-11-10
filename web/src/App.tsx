@@ -71,7 +71,7 @@ function Marco({ children }: { children: ReactNode }) {
           ) : (
             <>
               <NavLink to="/" end><span aria-hidden="true">▦</span>Inicio</NavLink>
-              <NavLink to="/mantenimiento"><span aria-hidden="true">📊</span>Mantenimiento</NavLink>
+              {perfil === 'admin' && <NavLink to="/mantenimiento"><span aria-hidden="true">📊</span>Mantenimiento</NavLink>}
               <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Trabajos</NavLink>
               {perfil === 'admin' ? <NavLink to="/admin"><span aria-hidden="true">⚙</span>Admin</NavLink>
                 : <NavLink to="/historial"><span aria-hidden="true">⏱</span>Historial</NavLink>}
@@ -104,7 +104,7 @@ export default function App() {
             <Route path="/historial" element={<Protegida gestion><Historial /></Protegida>} />
             <Route path="/inventario/:codigo" element={<Protegida><Inventario /></Protegida>} />
             <Route path="/area/:codigo" element={<Protegida gestion><Area /></Protegida>} />
-            <Route path="/mantenimiento" element={<Protegida gestion><Mantenimiento /></Protegida>} />
+            <Route path="/mantenimiento" element={<Protegida admin><Mantenimiento /></Protegida>} />
             <Route path="/admin" element={<Protegida admin><Panel /></Protegida>} />
             <Route path="/admin/usuarios" element={<Protegida admin><Usuarios /></Protegida>} />
             <Route path="/admin/maquinaria" element={<Protegida admin><Maquinaria /></Protegida>} />
