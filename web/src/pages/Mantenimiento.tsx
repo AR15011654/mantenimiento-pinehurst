@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { duracion, fecha, FRECUENCIAS, mensajeError, supabase, todas } from '../lib';
 import { descargarExcel } from '../excel';
 import { useSesion } from '../sesion';
-import { Aviso, Cargando } from '../ui';
+import { Aviso, Cargando, Titulo } from '../ui';
 import ModuloImagen, { ETIQUETA_MODULO } from '../ModuloImagen';
 
 type MaqProg = {
@@ -179,7 +179,7 @@ export default function Mantenimiento() {
           <Link to={`/area/${desdeArea.codigo}`} className="volver" aria-label="Volver al área">←</Link>
           <h1>Mantenimiento · {actual?.nombre ?? 'Todos los módulos'}</h1>
         </div>
-      ) : <header className="titulo"><h1>Mantenimiento</h1><p className="sub">Programación, avance y desempeño de sus áreas.</p></header>}
+      ) : <Titulo sub="Programación, avance y desempeño de sus áreas.">Mantenimiento</Titulo>}
 
       <div className="filtros-dash">
         <select value={modulo} onChange={e => { setModulo(e.target.value); setArea(''); }} aria-label="Módulo">

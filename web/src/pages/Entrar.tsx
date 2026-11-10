@@ -36,7 +36,7 @@ export default function Entrar() {
 
   return (
     <main className="contenido angosto">
-      <Titulo sub="Ingrese con la cuenta que le asignó el administrador.">Iniciar sesión</Titulo>
+      <Titulo sinVolver sub="Ingrese con la cuenta que le asignó el administrador.">Iniciar sesión</Titulo>
       <form onSubmit={entrar} className="tarjeta">
         <Campo etiqueta="Correo"><input type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required /></Campo>
         <Campo etiqueta="Contraseña"><input type="password" autoComplete="current-password" value={clave} onChange={e => setClave(e.target.value)} required /></Campo>
