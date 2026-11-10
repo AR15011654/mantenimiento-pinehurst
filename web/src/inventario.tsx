@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, todas } from './lib';
 import LectorQR from './LectorQR';
+import { useSesion } from './sesion';
+
+/** El técnico no ve precios ni costos (la base de datos tampoco se los entrega). */
+export function useVerPrecios() {
+  const { sesion } = useSesion();
+  const p = sesion?.usuario?.perfil;
+  return p === 'admin' || p === 'supervisor';
+}
 
 export type Articulo = {
   id: string; modulo_id: string; codigo: string; descripcion: string; codigo_ax: string | null; ubicacion: string | null;
@@ -9,7 +17,7 @@ export type Articulo = {
 
 export async function cargarArticulos(moduloId: string, soloActivos = true): Promise<Articulo[]> {
   const r = await todas<Articulo>(() => {
-    let q = supabase.from('inv_articulos').select('id, modulo_id, codigo, descripcion, codigo_ax, ubicacion, precio_usd, notas, existencia, activo')
+    let q = supabase.from('inv_v_articulos').select('id, modulo_id, codigo, descripcion, codigo_ax, ubicacion, precio_usd, notas, existencia, activo')
       .eq('modulo_id', moduloId);
     if (soloActivos) q = q.eq('activo', true);
     return q.order('codigo');
@@ -26,6 +34,7 @@ const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 export function SelectorArticulo({ articulos, elegido, onElegir, disabled, mostrarSinExistencia = true }:
   { articulos: Articulo[]; elegido: Articulo | null; onElegir: (a: Articulo | null) => void; disabled?: boolean; mostrarSinExistencia?: boolean }) {
   const [texto, setTexto] = useState('');
+  const verPrecios = useVerPrecios();
   const resultados = useMemo(() => {
     const t = norm(texto.trim());
     if (!t) return [];
@@ -46,7 +55,7 @@ export function SelectorArticulo({ articulos, elegido, onElegir, disabled, mostr
     return (
       <div className="art-elegido">
         <div><b>{elegido.codigo}</b> · {elegido.descripcion}
-          <span className="item-sub">Existencia: <b>{num(elegido.existencia)}</b> · Precio: {dinero(elegido.precio_usd)}{elegido.codigo_ax ? ` · AX ${elegido.codigo_ax}` : ''}</span>
+          <span className="item-sub">Existencia: <b>{num(elegido.existencia)}</b>{verPrecios ? ` · Precio: ${dinero(elegido.precio_usd)}` : ''}{elegido.codigo_ax ? ` · AX ${elegido.codigo_ax}` : ''}</span>
         </div>
         {!disabled && <button type="button" className="btn btn-link" onClick={() => { onElegir(null); setTexto(''); }}>Cambiar</button>}
       </div>
@@ -73,7 +82,7 @@ export function SelectorArticulo({ articulos, elegido, onElegir, disabled, mostr
             return (
               <button type="button" key={a.id} className="item" disabled={sin} onClick={() => { onElegir(a); setTexto(''); }}>
                 <b>{a.codigo}</b> · {a.descripcion}
-                <span className="item-sub">Existencia: {num(a.existencia)}{sin ? ' (sin existencia)' : ''} · {dinero(a.precio_usd)}</span>
+                <span className="item-sub">Existencia: {num(a.existencia)}{sin ? ' (sin existencia)' : ''}{verPrecios ? ` · ${dinero(a.precio_usd)}` : ''}</span>
               </button>
             );
           })}
