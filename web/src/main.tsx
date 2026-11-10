@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { supabase } from './lib';
 import App from './App';
 import { iniciarTraduccion } from './idioma';
+import { aplicarTema, temaGuardado } from './tema';
+
+aplicarTema(temaGuardado());
 import './estilos.css';
 
 // Los enlaces de invitación y de recuperación llegan como #access_token=...&type=invite.

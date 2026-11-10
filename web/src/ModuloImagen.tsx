@@ -6,7 +6,8 @@ export const ETIQUETA_MODULO: Record<string, string> = {
 };
 
 // Ilustraciones propias de cada módulo (SVG en línea, sin archivos externos).
-const AZUL = '#1f6fd1', CLARO = '#5aa8ff', VERDE = '#3fbf5f', FONDO = '#0b2546';
+// Colores de marca Pinehurst: Azul #0067B8 · Verde #43AF2A · Navy #002B49.
+const AZUL = '#0067B8', CLARO = '#5aa8ff', VERDE = '#43AF2A', FONDO = '#002B49';
 
 function Costura() {
   return (

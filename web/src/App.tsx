@@ -12,6 +12,7 @@ import Area from './pages/Area';
 import Inventario from './pages/Inventario';
 import Mantenimiento from './pages/Mantenimiento';
 import { SelectorIdioma } from './idioma';
+import { SelectorTema } from './tema';
 import Escanear from './pages/Escanear';
 import FichaMaquina from './pages/FichaMaquina';
 import Trabajo from './pages/Trabajo';
@@ -53,8 +54,9 @@ function Marco({ children }: { children: ReactNode }) {
   return (
     <div className="marco">
       <header className="barra">
-        <Link to="/" className="marca">Mantenimiento <b>Pinehurst</b></Link>
+        <Link to="/" className="marca" aria-label="Mantenimiento Pinehurst"><img src="logo-blanco.png" alt="Pinehurst MFG" /><span>Mantenimiento</span></Link>
         <div className="barra-der">
+          <SelectorTema />
           <SelectorIdioma />
         {auth && sesion?.autorizado && (
           <>
@@ -76,7 +78,7 @@ function Marco({ children }: { children: ReactNode }) {
             <>
               <NavLink to="/" end><span aria-hidden="true">▦</span>Inicio</NavLink>
               {perfil === 'admin' && <NavLink to="/mantenimiento"><span aria-hidden="true">📊</span>Mantenimiento</NavLink>}
-              <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Trabajos</NavLink>
+              {perfil === 'admin' && <NavLink to="/trabajos"><span aria-hidden="true">☰</span>Trabajos</NavLink>}
               {perfil === 'admin' ? <NavLink to="/admin"><span aria-hidden="true">⚙</span>Admin</NavLink>
                 : <NavLink to="/historial"><span aria-hidden="true">⏱</span>Historial</NavLink>}
             </>
