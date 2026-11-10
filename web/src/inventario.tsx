@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, todas } from './lib';
+import LectorQR from './LectorQR';
 
 export type Articulo = {
   id: string; modulo_id: string; codigo: string; descripcion: string; codigo_ax: string | null; ubicacion: string | null;
@@ -53,13 +54,16 @@ export function SelectorArticulo({ articulos, elegido, onElegir, disabled, mostr
   }
   return (
     <div className="art-buscar">
-      <input value={texto} disabled={disabled} onChange={e => setTexto(e.target.value)} placeholder="Buscar por código, nombre o código AX"
-        onKeyDown={e => {
-          if (e.key !== 'Enter') return;
-          e.preventDefault();
-          const disponibles = resultados.filter(elegible);
-          if (disponibles.length === 1) { onElegir(disponibles[0]); setTexto(''); }
-        }} />
+      <div className="campo-qr">
+        <input value={texto} disabled={disabled} onChange={e => setTexto(e.target.value)} placeholder="Escanee o busque por código, nombre o AX"
+          onKeyDown={e => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const disponibles = resultados.filter(elegible);
+            if (disponibles.length === 1) { onElegir(disponibles[0]); setTexto(''); }
+          }} />
+        <LectorQR icono texto="Escanear código del repuesto" disabled={disabled} onLeido={t => setTexto(t)} />
+      </div>
       {resultados.length > 0 && <span className="nota">Toque el repuesto para elegirlo.</span>}
       {exacto && !elegible(exacto) && <span className="nota">{exacto.codigo} no tiene existencia.</span>}
       {resultados.length > 0 && (

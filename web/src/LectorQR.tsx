@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats as F } from 'html5-qrcode';
+
+// QR y códigos de barras comunes (gafetes, etiquetas de repuestos, códigos de proveedor).
+const FORMATOS = [F.QR_CODE, F.CODE_128, F.CODE_39, F.CODE_93, F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.ITF, F.CODABAR, F.DATA_MATRIX, F.PDF_417];
 
 export function IconoQR() {
   return (
@@ -9,7 +12,7 @@ export function IconoQR() {
   );
 }
 
-/** Botón que abre la cámara y devuelve el texto leído. Con `icono` se muestra como botón cuadrado junto a un campo. */
+/** Botón que abre la cámara y devuelve el texto leído (QR o código de barras). Con `icono` se muestra como botón cuadrado junto a un campo. */
 export default function LectorQR({ onLeido, texto = 'Escanear QR', icono = false, disabled = false }:
   { onLeido: (t: string) => void; texto?: string; icono?: boolean; disabled?: boolean }) {
   const [abierto, setAbierto] = useState(false);
@@ -26,8 +29,11 @@ export default function LectorQR({ onLeido, texto = 'Escanear QR', icono = false
   useEffect(() => {
     if (!abierto) return;
     setError(null);
-    lector.current = new Html5Qrcode(id.current, { verbose: false });
-    lector.current.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } },
+    lector.current = new Html5Qrcode(id.current, { verbose: false, formatsToSupport: FORMATOS,
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
+    // Recuadro ancho para que quepan los códigos de barras; sigue sirviendo para QR.
+    const recuadro = (w: number, h: number) => ({ width: Math.max(160, Math.floor(w * 0.85)), height: Math.max(120, Math.floor(Math.min(h, w) * 0.6)) });
+    lector.current.start({ facingMode: 'environment' }, { fps: 10, qrbox: recuadro },
       async t => { await cerrar(); onLeido(t.trim()); }, () => {})
       .catch(e => {
         setAbierto(false);
