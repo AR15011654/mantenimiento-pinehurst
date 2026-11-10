@@ -188,3 +188,12 @@ textarea { resize: vertical; }
 .instalar-cerrar { border: none; background: none; font-size: 1.1rem; color: var(--suave); cursor: pointer; padding: 6px; }
 .marca::before { content: ''; display: inline-block; width: 22px; height: 22px; margin-right: 8px; vertical-align: -5px; background: url(/icono-192.png) center/cover; border-radius: 5px; }
 .tile-nombre { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+/* Servicio externo */
+.bloque-externo { display: flex; flex-direction: column; gap: 14px; padding: 12px; border-left: 4px solid var(--pri); background: #f4f8fc; border-radius: 8px; }
+.campo-costo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.campo-costo select { min-width: 96px; }
+.doc-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.doc-botones .caja-foto { min-height: 80px; font-size: .95rem; text-align: center; padding: 4px; }
+.doc-pdf { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; aspect-ratio: 1; padding: 6px; border: 1px solid var(--borde); border-radius: 6px; background: #fff; font-size: .75rem; text-align: center; word-break: break-all; overflow: hidden; }
+.doc-pdf b { color: #c62828; font-size: 1.1rem; }
+.doc-lista { display: flex; flex-direction: column; gap: 6px; }
