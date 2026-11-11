@@ -29,6 +29,8 @@ const PATRONES: [RegExp, (m: string[]) => string][] = [
   [/^Vista previa de (.+)$/, m => `Preview of ${m[1]}`],
   [/^Editar (.+)$/, m => `Edit ${m[1]}`],
   [/^Etiquetas de todo el catálogo \((\d+)\)$/, m => `Labels for the whole catalog (${m[1]})`],
+  [/^Etiquetas seleccionadas \((\d+)\)$/, m => `Selected labels (${m[1]})`],
+  [/^Seleccionar (.+)$/, m => `Select ${m[1]}`],
   [/^El código "(.+)" tiene caracteres que no se pueden imprimir en código de barras\.$/, m => `Code "${m[1]}" has characters that cannot be printed as a barcode.`],
   [/^Usuario actualizado\. Ahora inicia sesión con (.+)\.$/, m => `User updated. They now sign in with ${m[1]}.`],
   [/^¿Cambiar el correo de inicio de sesión de (.+) a (.+)\?$/, m => `Change the sign-in email from ${m[1]} to ${m[2]}?`],

@@ -259,6 +259,7 @@ button.volver { background: none; border: none; cursor: pointer; font: inherit; 
 @media (max-width: 420px) { .marca span { display: none; } }
 /* Etiquetas con código de barras (Catálogo) */
 .etiquetas-barra { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: 12px 0; }
-.etiquetas-barra .campo { flex: 1; min-width: 220px; margin: 0; }
+.etiquetas-barra .campo { flex: 1; min-width: 340px; margin: 0; }
 .etiquetas-barra .campo.copias { flex: 0 0 90px; min-width: 90px; }
 .aviso.fila-botones { justify-content: space-between; }
+.tabla .col-sel { width: 36px; text-align: center; } .tabla .col-sel input { width: 18px; height: 18px; min-height: 0; cursor: pointer; }
