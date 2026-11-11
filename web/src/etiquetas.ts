@@ -40,13 +40,14 @@ export function siguienteCodigo(codigos: string[], prefijoPorDefecto = 'ART'): s
   return cod;
 }
 
-export type Formato = 'carta' | 'rollo';
+export type Formato = 'carta' | 'seis_por_cuatro';
 export const FORMATOS: Record<Formato, string> = {
-  carta: 'Hoja carta · 30 etiquetas de 2⅝ × 1 pulg. (tipo 5160)',
-  rollo: 'Impresora de etiquetas · 50 × 25 mm, una por etiqueta',
+  carta: 'Hoja carta · 3 etiquetas horizontales de 6 × 3.5 pulg.',
+  seis_por_cuatro: 'Etiqueta 6 × 4 pulg. horizontal · una por página',
 };
 
 type Art = Pick<Articulo, 'codigo' | 'descripcion' | 'codigo_ax' | 'ubicacion'>;
+const PULG = 25.4;
 
 /** Genera y descarga un PDF de etiquetas. `copias` repite cada etiqueta. */
 export async function descargarEtiquetas(arts: Art[], formato: Formato, nombreArchivo: string, copias = 1) {
@@ -57,46 +58,51 @@ export async function crearPdfEtiquetas(arts: Art[], formato: Formato, copias = 
   if (!arts.length) throw new Error('No hay artículos para imprimir.');
   const { jsPDF } = await import('jspdf');
   const lista = arts.flatMap(a => Array.from({ length: Math.max(1, copias) }, () => a));
-  // Medidas en milímetros.
   const carta = formato === 'carta';
-  const W = carta ? 66.675 : 50, H = carta ? 25.4 : 25;
+  // Medidas en milímetros. 6 × 4 pulg. exacto; en carta caben 3 de 6 × 3.5 pulg. (3 de 4 pulg. de alto no caben en 11 pulg.).
+  const W = 6 * PULG, H = carta ? 3.5 * PULG : 4 * PULG;
   const doc = carta
     ? new jsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' })
     : new jsPDF({ unit: 'mm', format: [W, H], orientation: 'landscape' });
-  const pos = (i: number) => {
-    if (!carta) return { x: 0, y: 0, pagina: i };
-    const k = i % 30;
-    return { x: 4.7625 + (k % 3) * (W + 3.175), y: 12.7 + Math.floor(k / 3) * H, pagina: Math.floor(i / 30) };
-  };
-  let pagina = 0;
+  const x0 = carta ? (8.5 * PULG - W) / 2 : 0, y0 = carta ? (11 * PULG - 3 * H) / 2 : 0;
   lista.forEach((a, i) => {
-    const p = pos(i);
-    if (p.pagina > pagina) { doc.addPage(); pagina = p.pagina; }
-    dibujar(doc, a, p.x, p.y, W, H);
+    const k = carta ? i % 3 : 0;
+    if (i > 0 && k === 0) doc.addPage();
+    const y = y0 + k * H;
+    if (carta) {           // línea de corte
+      doc.setDrawColor(170, 180, 190); doc.setLineWidth(0.2); doc.setLineDashPattern([1.5, 1.5], 0);
+      doc.rect(x0, y, W, H, 'S'); doc.setLineDashPattern([], 0);
+    }
+    dibujar(doc, a, x0, y, W, H);
   });
   return doc;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dibujar(doc: any, a: Art, x: number, y: number, W: number, H: number) {
-  const m = 2.2;                                   // margen interior
+  const m = 7;                                     // margen interior (mm)
   const anchos = code128(a.codigo);
   const modulos = anchos.reduce((s, v) => s + v, 0) + 20;   // 10 módulos de zona libre a cada lado
-  const anchoBarra = W - 2 * m;
-  const mod = anchoBarra / modulos;
-  // Distribución vertical: descripción (2 líneas) · barras · código legible · datos.
-  const yPie = y + H - 1.5, yCodigo = yPie - 2.5, yb = y + 7.2, altoBarras = (yCodigo - 2.9) - yb;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(0, 43, 73);
+  const anchoBarras = Math.min(W - 2 * m, modulos * 0.9);   // módulo de hasta 0.9 mm
+  const mod = anchoBarras / modulos;
+  const xb = x + (W - anchoBarras) / 2;
+  // Descripción: hasta 2 líneas arriba.
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(0, 43, 73);
   const lineas: string[] = doc.splitTextToSize(a.descripcion ?? '', W - 2 * m).slice(0, 2);
-  lineas.forEach((l, i) => doc.text(l, x + m, y + 3.4 + i * 2.6));
-  doc.setFillColor(0, 0, 0);
-  let cx = x + m + 10 * mod;
-  anchos.forEach((w, i) => { if (i % 2 === 0) doc.rect(cx, yb, w * mod, altoBarras, 'F'); cx += w * mod; });
-  doc.setFont('courier', 'bold'); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
-  doc.text(a.codigo, x + W / 2, yCodigo, { align: 'center' });
-  const pie = [a.codigo_ax ? `AX ${a.codigo_ax}` : '', a.ubicacion ? `Ubic. ${a.ubicacion}` : ''].filter(Boolean).join('  ·  ');
+  lineas.forEach((l, i) => doc.text(l, x + m, y + m + 5 + i * 7));
+  // Pie: código AX y ubicación.
+  const yPie = y + H - m + 1;
+  const pie = [a.codigo_ax ? `AX ${a.codigo_ax}` : '', a.ubicacion ? `Ubicación: ${a.ubicacion}` : ''].filter(Boolean).join('     ·     ');
   if (pie) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(5.6); doc.setTextColor(60, 70, 80);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(60, 70, 80);
     doc.text(doc.splitTextToSize(pie, W - 2 * m)[0], x + W / 2, yPie, { align: 'center' });
   }
+  // Código legible grande y barras entre la descripción y el pie.
+  const yCodigo = yPie - 9;
+  const yb = y + m + 5 + 7 + 5, altoBarras = yCodigo - 10 - yb;
+  doc.setFillColor(0, 0, 0);
+  let cx = xb + 10 * mod;
+  anchos.forEach((w, i) => { if (i % 2 === 0) doc.rect(cx, yb, w * mod, altoBarras, 'F'); cx += w * mod; });
+  doc.setFont('courier', 'bold'); doc.setFontSize(26); doc.setTextColor(0, 0, 0);
+  doc.text(a.codigo, x + W / 2, yCodigo, { align: 'center' });
 }
