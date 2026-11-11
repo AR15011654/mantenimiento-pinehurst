@@ -87,23 +87,24 @@ function dibujar(doc: any, a: Art, x: number, y: number, W: number, H: number) {
   const anchoBarras = Math.min(W - 2 * m, modulos * 0.9);   // módulo de hasta 0.9 mm
   const mod = anchoBarras / modulos;
   const xb = x + (W - anchoBarras) / 2;
+  // Todo en negro puro: en impresoras térmicas (Zebra) los colores salen tramados y se leen peor.
   // Descripción: hasta 2 líneas arriba.
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(17 * f); doc.setTextColor(0, 43, 73);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(22 * f); doc.setTextColor(0, 0, 0);
   const lineas: string[] = doc.splitTextToSize(a.descripcion ?? '', W - 2 * m).slice(0, 2);
-  lineas.forEach((l, i) => doc.text(l, x + m, y + m + 5 * f + i * 7 * f));
+  lineas.forEach((l, i) => doc.text(l, x + m, y + m + 6.5 * f + i * 8.5 * f));
   // Pie: código AX y ubicación.
   const yPie = y + H - m + 1 * f;
   const pie = [a.codigo_ax ? `AX ${a.codigo_ax}` : '', a.ubicacion ? `Ubicación: ${a.ubicacion}` : ''].filter(Boolean).join('   ·   ');
   if (pie) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(12 * f); doc.setTextColor(60, 70, 80);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15 * f); doc.setTextColor(0, 0, 0);
     doc.text(doc.splitTextToSize(pie, W - 2 * m)[0], x + W / 2, yPie, { align: 'center' });
   }
   // Código legible grande y barras entre la descripción y el pie.
   const yCodigo = yPie - 9 * f;
-  const yb = y + m + 17 * f, altoBarras = yCodigo - 10 * f - yb;
+  const yb = y + m + 20 * f, altoBarras = yCodigo - 13 * f - yb;
   doc.setFillColor(0, 0, 0);
   let cx = xb + 10 * mod;
   anchos.forEach((w, i) => { if (i % 2 === 0) doc.rect(cx, yb, w * mod, altoBarras, 'F'); cx += w * mod; });
-  doc.setFont('courier', 'bold'); doc.setFontSize(26 * f); doc.setTextColor(0, 0, 0);
+  doc.setFont('courier', 'bold'); doc.setFontSize(36 * f); doc.setTextColor(0, 0, 0);
   doc.text(a.codigo, x + W / 2, yCodigo, { align: 'center' });
 }
