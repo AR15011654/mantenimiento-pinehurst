@@ -340,6 +340,10 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
   const [guardado, setGuardado] = useState<Pick<Articulo, 'codigo' | 'descripcion' | 'codigo_ax' | 'ubicacion'> | null>(null);
   const [formato, setFormato] = useState<Formato>('carta');
   const [copias, setCopias] = useState('1');
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const alternarSel = (id: string) => setSel(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const todosSel = articulos.length > 0 && articulos.every(a => sel.has(a.id));
+  const seleccionados = articulos.filter(a => sel.has(a.id));
 
   async function etiquetas(arts: Pick<Articulo, 'codigo' | 'descripcion' | 'codigo_ax' | 'ubicacion'>[], nombre: string) {
     setError(null);
@@ -456,12 +460,15 @@ function Catalogo({ moduloId, articulos, onCambio }: { moduloId: string; articul
             </select></label>
           <label className="campo copias"><span className="campo-etiqueta">COPIAS</span>
             <input value={copias} inputMode="numeric" onChange={e => setCopias(e.target.value.replace(/\D/g, ''))} /></label>
+          <button className="btn btn-pri" disabled={!seleccionados.length} onClick={() => etiquetas(seleccionados, seleccionados.length === 1 ? seleccionados[0].codigo : `seleccion_${seleccionados.length}`)}>Etiquetas seleccionadas ({seleccionados.length})</button>
           <button className="btn btn-sec" onClick={() => etiquetas(articulos.filter(a => a.activo), 'catalogo')}>Etiquetas de todo el catálogo ({articulos.filter(a => a.activo).length})</button>
+          {seleccionados.length > 0 && <button type="button" className="btn btn-link" onClick={() => setSel(new Set())}>Quitar selección</button>}
         </div>
         <div className="tabla-scroll alto"><table className="tabla">
-          <thead><tr><th>Código</th><th>Descripción</th><th>Código AX</th><th>Ubicación</th><th>Precio</th><th>Exist.</th><th></th></tr></thead>
+          <thead><tr><th className="col-sel"><input type="checkbox" aria-label="Seleccionar todos" checked={todosSel} onChange={() => setSel(todosSel ? new Set() : new Set(articulos.map(a => a.id)))} /></th><th>Código</th><th>Descripción</th><th>Código AX</th><th>Ubicación</th><th>Precio</th><th>Exist.</th><th></th></tr></thead>
           <tbody>{articulos.map(a => (
-            <tr key={a.id} className={a.activo ? '' : 'inactivo'}>
+            <tr key={a.id} className={`${a.activo ? '' : 'inactivo'} ${sel.has(a.id) ? 'sel' : ''}`}>
+              <td className="col-sel"><input type="checkbox" aria-label={`Seleccionar ${a.codigo}`} checked={sel.has(a.id)} onChange={() => alternarSel(a.id)} /></td>
               <td>{a.codigo}</td><td>{a.descripcion}{a.activo ? '' : ' (baja)'}</td><td>{a.codigo_ax ?? '—'}</td><td>{a.ubicacion ?? '—'}</td>
               <td className="num">{dinero(a.precio_usd)}</td><td className="num">{num(a.existencia)}</td>
               <td className="acciones-celda"><button className="btn btn-link" onClick={() => { setGuardado(null); setEdit(a); }}>Editar</button>
