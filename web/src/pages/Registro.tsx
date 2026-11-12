@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { fecha, fechaHora, FRECUENCIAS, Maquina, mensajeError, nuevaClave, rpc, supabase } from '../lib';
-import { useModulo, useSesion } from '../sesion';
+import { useModulo } from '../sesion';
 import { Aviso } from '../ui';
 import LectorQR from '../LectorQR';
 import { Articulo, cargarArticulos, num, SelectorArticulo, useVerPrecios } from '../inventario';
@@ -31,14 +31,13 @@ const nombreMaquina = (m: Maquina) => [m.tipo, m.fabricante, m.modelo].filter(Bo
 export default function Registro() {
   const { codigo } = useParams();
   const modulo = useModulo(codigo);
-  const { sesion } = useSesion();
-  const soloPropio = sesion?.usuario?.perfil === 'tecnico' && !sesion?.usuario?.puede_registrar_otros;
 
   const [qr, setQr] = useState('');
   const [maquina, setMaquina] = useState<Maquina | null>(null);
   const [opciones, setOpciones] = useState<Maquina[]>([]);
   const [errMaq, setErrMaq] = useState<string | null>(null);
-  const [codMec, setCodMec] = useState(soloPropio ? sesion?.empleado?.codigo ?? '' : '');
+  // Cualquier persona de la lista de personal puede escanear su gafete (no depende del usuario que inició sesión).
+  const [codMec, setCodMec] = useState('');
   const [mec, setMec] = useState<Mecanico | null>(null);
   const [errMec, setErrMec] = useState<string | null>(null);
   const [tipo, setTipo] = useState<'preventivo' | 'correctivo' | ''>('');
@@ -53,6 +52,10 @@ export default function Registro() {
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const verPrecios = useVerPrecios();
   const [externo, setExterno] = useState<'' | 'si' | 'no'>('');
+  // Servicio externo: nombre escrito del mecánico externo (no está en la lista de personal).
+  const [nomExt, setNomExt] = useState('');
+  const [extListo, setExtListo] = useState('');
+  const [extUsado, setExtUsado] = useState<string | null>(null);
   const [proveedor, setProveedor] = useState('');
   const [costo, setCosto] = useState('');
   const [moneda, setMoneda] = useState<'USD' | 'HNL'>('USD');
@@ -68,7 +71,7 @@ export default function Registro() {
   function limpiar() {
     fotos.forEach(f => URL.revokeObjectURL(f.url));
     setQr(''); setMaquina(null); setOpciones([]); setErrMaq(null);
-    setCodMec(soloPropio ? sesion?.empleado?.codigo ?? '' : ''); setMec(null); setErrMec(null);
+    setCodMec(''); setMec(null); setErrMec(null); setNomExt(''); setExtListo(''); setExtUsado(null);
     setTipo(''); setTrabajo(null); setErrInicio(null); setComentario(''); setComGuardado(''); setFotos([]);
     docs.forEach(d => URL.revokeObjectURL(d.url)); setExterno(''); setProveedor(''); setCosto(''); setMoneda('USD'); setDocs([]);
     setRepAbierto(false); setRepuestos([]); setRepArt(null); setRepCant(''); setErrRep(null);
@@ -124,12 +127,20 @@ export default function Registro() {
 
   // 3. Inicio automático en cuanto hay máquina, mecánico autorizado y tipo. Si ya había uno en proceso, se retoma.
   useEffect(() => {
-    if (!maquina || !mec?.autorizado || !tipo || trabajo || iniciando || errInicio) return;
+    const esExt = externo === 'si';
+    if (!maquina || !(esExt ? extListo : mec?.autorizado) || !tipo || trabajo || iniciando || errInicio) return;
     (async () => {
       setIniciando(true);
       try {
+        if (esExt) {
+          const r = await rpc<Trabajo>('iniciar_mantenimiento', {
+            p_maquina_id: maquina.id, p_tipo: tipo, p_codigo_mecanico: '', p_qr_leido: qr.trim(), p_idempotency_key: claves.current.inicio,
+            p_mecanico_externo: extListo,
+          });
+          setExtUsado(extListo); setTrabajo(r); return;
+        }
         const ex = await supabase.from('mantenimientos').select('id, folio, inicio_en')
-          .eq('maquina_id', maquina.id).eq('mecanico_id', mec.id!).eq('estado', 'en_proceso').maybeSingle();
+          .eq('maquina_id', maquina.id).eq('mecanico_id', mec!.id!).eq('estado', 'en_proceso').maybeSingle();
         if (ex.error) throw ex.error;
         if (ex.data) { setTrabajo({ ...(ex.data as Trabajo), retomado: true }); return; }
         const r = await rpc<Trabajo>('iniciar_mantenimiento', {
@@ -139,7 +150,7 @@ export default function Registro() {
       } catch (e) { setErrInicio(mensajeError(e)); }
       finally { setIniciando(false); }
     })();
-  }, [maquina, mec, tipo, trabajo, iniciando, errInicio, codMec, qr]);
+  }, [maquina, mec, tipo, trabajo, iniciando, errInicio, codMec, qr, externo, extListo]);
 
   async function agregarFotos(lista: FileList | null) {
     if (!lista) return;
@@ -171,11 +182,11 @@ export default function Registro() {
 
   // 4. Finalizar: guarda comentario y fotos, y el servidor registra la fecha y hora de cierre.
   async function finalizar() {
-    if (!trabajo || !maquina || !mec) return;
+    if (!trabajo || !maquina || (!mec && !extUsado)) return;
     const montoTxt = costo.replace(/[$,\s]/g, '');
     const monto = Number(montoTxt);
     if (externo === 'si') {
-      if (!proveedor.trim()) { setErrFin('Escriba el proveedor del servicio externo.'); return; }
+      if (!proveedor.trim() && !extUsado) { setErrFin('Escriba el proveedor del servicio externo.'); return; }
       if (verPrecios && montoTxt && (!Number.isFinite(monto) || monto < 0)) { setErrFin('El costo del servicio externo no es válido.'); return; }
     }
     setFinalizando(true); setErrFin(null);
@@ -202,7 +213,7 @@ export default function Registro() {
       }
       if (repuestos.length) { setRepuestos(rs => [...rs]); cargarInventario(); }
       if (externo === 'si') {
-        await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim(),
+        await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim() || extUsado,
           p_costo: verPrecios && montoTxt ? monto : null, p_moneda: verPrecios && montoTxt ? moneda : null });
         for (const d of docs) {
           if (d.subido) continue;
@@ -219,7 +230,7 @@ export default function Registro() {
       const r = await rpc<{ folio: number; fin_en: string }>('finalizar_mantenimiento', { p_mantenimiento_id: trabajo.id, p_idempotency_key: claves.current.fin });
       // El servidor ya calculó el próximo mantenimiento (cierre + frecuencia de la máquina).
       const px = await supabase.from('maquinas').select('frecuencia, proximo_mantenimiento').eq('id', maquina.id).maybeSingle();
-      setResultado({ folio: r.folio, fin_en: r.fin_en, maquina: nombreMaquina(maquina), mecanico: mec.nombre ?? '',
+      setResultado({ folio: r.folio, fin_en: r.fin_en, maquina: nombreMaquina(maquina), mecanico: extUsado ? `${extUsado} (servicio externo)` : mec?.nombre ?? '',
         frecuencia: px.data?.frecuencia ?? null, proximo: px.data?.proximo_mantenimiento ?? null });
       window.scrollTo(0, 0);
     } catch (e) { setErrFin(mensajeError(e) + ' Nada se perdió: presione de nuevo "Finalizar mantenimiento".'); }
@@ -249,6 +260,8 @@ export default function Registro() {
   }
 
   const bloqueado = !!trabajo || iniciando;
+  // El campo del mecánico se vuelve texto libre cuando es servicio externo (y queda así si el trabajo inició como externo).
+  const modoExt = trabajo ? !!extUsado : externo === 'si';
   return (
     <main className="contenido angosto">
       <div className="form-cabecera">
@@ -288,19 +301,38 @@ export default function Registro() {
         </div>
 
         <div className="campo">
-          <span className="campo-etiqueta">QR MECÁNICO<span className="req">*</span></span>
-          <div className="campo-qr">
-            <input value={codMec} inputMode="numeric" disabled={bloqueado || soloPropio || !maquina}
-              placeholder={maquina ? 'Escanee el gafete o escriba el código' : 'Primero la máquina'}
-              onChange={e => { setCodMec(e.target.value); setMec(null); setErrMec(null); }}
-              onBlur={() => verificarMecanico(codMec, maquina)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); verificarMecanico(codMec, maquina); } }} />
-            <LectorQR icono texto="Escanear gafete del mecánico" disabled={bloqueado || soloPropio || !maquina}
-              onLeido={t => { setCodMec(t); verificarMecanico(t, maquina); }} />
-          </div>
-          {mec?.autorizado && <div className="ok-linea">✓ {mec.nombre}</div>}
-          {errMec && <Aviso tipo="error">{errMec}</Aviso>}
-          {soloPropio && !sesion?.empleado && <Aviso tipo="alerta">Su cuenta no está vinculada a un código de empleado. Pida al administrador que la vincule.</Aviso>}
+          <span className="campo-etiqueta">{modoExt ? 'MECÁNICO EXTERNO' : 'QR MECÁNICO'}<span className="req">*</span></span>
+          {modoExt ? (
+            <>
+              <input value={trabajo ? extUsado ?? '' : nomExt} disabled={bloqueado || !maquina} maxLength={120}
+                placeholder={maquina ? 'Escriba el nombre del mecánico externo' : 'Primero la máquina'}
+                onChange={e => { setNomExt(e.target.value); setExtListo(''); }}
+                onBlur={() => setExtListo(nomExt.trim())}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setExtListo(nomExt.trim()); } }} />
+              {(trabajo ? extUsado : extListo) && <div className="ok-linea">✓ {trabajo ? extUsado : extListo} · Servicio externo</div>}
+            </>
+          ) : (
+            <>
+              <div className="campo-qr">
+                <input value={codMec} inputMode="numeric" disabled={bloqueado || !maquina}
+                  placeholder={maquina ? 'Escanee el gafete o escriba el código' : 'Primero la máquina'}
+                  onChange={e => { setCodMec(e.target.value); setMec(null); setErrMec(null); }}
+                  onBlur={() => verificarMecanico(codMec, maquina)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); verificarMecanico(codMec, maquina); } }} />
+                <LectorQR icono texto="Escanear gafete del mecánico" disabled={bloqueado || !maquina}
+                  onLeido={t => { setCodMec(t); verificarMecanico(t, maquina); }} />
+              </div>
+              {mec?.autorizado && <div className="ok-linea">✓ {mec.nombre}</div>}
+              {errMec && <Aviso tipo="error">{errMec}</Aviso>}
+            </>
+          )}
+          {!trabajo && (
+            <label className="check-externo">
+              <input type="checkbox" checked={externo === 'si'} disabled={bloqueado}
+                onChange={e => { setExterno(e.target.checked ? 'si' : ''); setErrInicio(null); }} />
+              <span>Servicio externo (mecánico que no está en la lista de personal)</span>
+            </label>
+          )}
         </div>
 
         <div className="campo">
@@ -387,15 +419,16 @@ export default function Registro() {
 
         <button type="button" aria-expanded={externo === 'si'}
           className={`btn btn-opcion btn-externo ${externo === 'si' ? 'activo' : ''}`}
-          onClick={() => setExterno(externo === 'si' ? '' : 'si')}>
+          onClick={() => { if (!extUsado) setExterno(externo === 'si' ? '' : 'si'); }}>
           <span>SERVICIO EXTERNO</span><span aria-hidden="true">{externo === 'si' ? '▲' : '▼'}</span>
         </button>
 
         {externo === 'si' && (
           <div className="bloque-externo">
             <div className="campo">
-              <span className="campo-etiqueta">PROVEEDOR<span className="req">*</span></span>
+              <span className="campo-etiqueta">PROVEEDOR{!extUsado && <span className="req">*</span>}</span>
               <input value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor o taller" />
+              {extUsado && <span className="nota">Si lo deja vacío se registra con el nombre del mecánico externo.</span>}
             </div>
             {verPrecios && <div className="campo">
               <span className="campo-etiqueta">COSTO ($)</span>
@@ -441,7 +474,7 @@ export default function Registro() {
           {finalizando ? 'Guardando…' : 'FINALIZAR MANTENIMIENTO'}
         </button>
         <p className="nota centrado">
-          {trabajo ? 'Al finalizar, el servidor guarda la fecha y hora de cierre.' : 'Complete QR máquina, QR mecánico y tipo para habilitar el botón.'}
+          {trabajo ? 'Al finalizar, el servidor guarda la fecha y hora de cierre.' : (externo === 'si' ? 'Complete QR máquina, nombre del mecánico externo y tipo para habilitar el botón.' : 'Complete QR máquina, QR mecánico y tipo para habilitar el botón.')}
         </p>
         <button type="button" className="btn btn-link" onClick={limpiar}>Limpiar formulario</button>
       </div>

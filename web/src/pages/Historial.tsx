@@ -63,13 +63,13 @@ export default function Historial() {
         { titulo: 'UBICACION / LINEA', clave: 'snap_ubicacion' }, { titulo: 'PUESTO', clave: 'snap_puesto', ancho: 10 },
         { titulo: 'QR', clave: 'snap_qr' }, { titulo: 'SERIE', clave: 'snap_serie' }, { titulo: 'ASSET ID', clave: 'snap_asset_id', ancho: 26 },
         { titulo: 'MAQUINA', clave: 'snap_maquina', ancho: 22 }, { titulo: 'QR MECANICO', clave: 'snap_mecanico_codigo', ancho: 12 },
-        { titulo: 'MECANICO', clave: 'snap_mecanico_nombre', ancho: 32 }, { titulo: 'TIPO DE MANTENIMIENTO', clave: 'tipo_txt', ancho: 16 },
+        { titulo: 'MECANICO', clave: 'snap_mecanico_nombre', ancho: 32 }, { titulo: 'SERVICIO EXTERNO', clave: 'externo_txt', ancho: 10 }, { titulo: 'TIPO DE MANTENIMIENTO', clave: 'tipo_txt', ancho: 16 },
         { titulo: 'ESTADO', clave: 'estado_txt', ancho: 22 },
         { titulo: 'INICIO ACTIVIDAD (Tegucigalpa)', clave: 'inicio', ancho: 18 }, { titulo: 'FINAL ACTIVIDAD (Tegucigalpa)', clave: 'fin', ancho: 18 },
         { titulo: 'DURACION MANTENIMIENTO (min)', clave: 'duracion_min', ancho: 14 },
         { titulo: 'COMENTARIO', clave: 'comentarios', ancho: 60 },
         { titulo: 'SEMANA', clave: 'semana', ancho: 8 }, { titulo: 'AÑO', clave: 'anio', ancho: 8 }, { titulo: 'MES', clave: 'mes', ancho: 6 },
-      ], filas.map(r => ({ ...r, tipo_txt: TIPOS[r.tipo], estado_txt: ESTADOS[r.estado], inicio: fechaHoraExcel(r.inicio_en), fin: fechaHoraExcel(r.fin_en),
+      ], filas.map(r => ({ ...r, tipo_txt: TIPOS[r.tipo], externo_txt: r.servicio_externo ? 'SI' : 'NO', estado_txt: ESTADOS[r.estado], inicio: fechaHoraExcel(r.inicio_en), fin: fechaHoraExcel(r.fin_en),
         duracion_min: r.duracion_min === null ? '' : Number(r.duracion_min), comentarios: (coment[r.id] ?? []).join(' | ') })));
     } catch (e) { setError(mensajeError(e)); }
     finally { setExportando(false); }
@@ -107,7 +107,7 @@ export default function Historial() {
                   <tr key={r.id}>
                     <td><Link to={`/trabajo/${r.id}`}>#{r.folio}</Link></td><td><Insignia estado={r.estado} /></td><td>{TIPOS[r.tipo]}</td>
                     <td>{r.snap_maquina}</td><td>{r.snap_qr}</td><td>{r.snap_area ?? r.snap_modulo}</td><td>{r.snap_ubicacion}</td>
-                    <td>{r.snap_mecanico_nombre}</td><td>{fechaHora(r.inicio_en)}</td><td>{fechaHora(r.fin_en)}</td><td>{duracion(r.duracion_min)}</td><td>{r.semana ?? ''}</td>
+                    <td>{r.snap_mecanico_nombre}{r.servicio_externo && <span className="nota"> · Externo</span>}</td><td>{fechaHora(r.inicio_en)}</td><td>{fechaHora(r.fin_en)}</td><td>{duracion(r.duracion_min)}</td><td>{r.semana ?? ''}</td>
                   </tr>
                 ))}
               </tbody>

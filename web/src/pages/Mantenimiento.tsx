@@ -165,7 +165,7 @@ export default function Mantenimiento() {
     trabs.forEach(t => { const a = t.snap_area ?? 'Sin área'; porArea[a] = porArea[a] ?? { prev: 0, corr: 0 }; porArea[a][t.tipo === 'preventivo' ? 'prev' : 'corr']++; });
     const mec: Record<string, { nombre: string; n: number; prev: number; corr: number; min: number }> = {};
     trabs.forEach(t => {
-      const k = t.mecanico_id ?? '-';
+      const k = t.mecanico_id ?? (t.snap_mecanico_nombre ? `ext:${t.snap_mecanico_nombre}` : '-');
       mec[k] = mec[k] ?? { nombre: t.snap_mecanico_nombre ?? 'Sin mecánico', n: 0, prev: 0, corr: 0, min: 0 };
       mec[k].n++; mec[k][t.tipo === 'preventivo' ? 'prev' : 'corr']++; mec[k].min += Number(t.duracion_min ?? 0);
     });

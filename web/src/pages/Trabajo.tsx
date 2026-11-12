@@ -158,7 +158,8 @@ export default function Trabajo() {
         <Dato k="Máquina" v={<Link to={`/maquina/${t.maquina_id}`}>{t.snap_maquina} {t.snap_fabricante ?? ''}</Link>} />
         <Dato k="QR / Serie" v={`${t.snap_qr ?? '—'} / ${t.snap_serie ?? '—'}`} />
         <Dato k="Ubicación" v={`${t.snap_ubicacion ?? '—'}${t.snap_puesto ? ' / ' + t.snap_puesto : ''}`} />
-        <Dato k="Mecánico" v={`${t.snap_mecanico_nombre ?? '—'} (${t.snap_mecanico_codigo ?? ''})`} />
+        <Dato k="Mecánico" v={t.mecanico_externo ? `${t.mecanico_externo} (mecánico externo)` : `${t.snap_mecanico_nombre ?? '—'} (${t.snap_mecanico_codigo ?? ''})`} />
+        <Dato k="Servicio externo" v={t.servicio_externo ? 'Sí' : 'No'} />
         <Dato k="Inicio" v={fechaHora(t.inicio_en)} />
         <Dato k="Final" v={fechaHora(t.fin_en)} />
         <Dato k="Duración del mantenimiento" v={abierto ? `${duracion((t.duracion_min ?? 0) + minutosAbiertos)} (en curso)` : duracion(t.duracion_min)} />
