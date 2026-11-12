@@ -101,6 +101,7 @@ export type Mantenimiento = {
   snap_fabricante: string | null; snap_modelo: string | null; snap_ubicacion: string | null; snap_puesto: string | null;
   snap_modulo: string | null; snap_area: string | null; snap_mecanico_codigo: string | null; snap_mecanico_nombre: string | null;
   qr_leido: string | null; codigo_mecanico_leido: string | null;
+  servicio_externo: boolean; mecanico_externo: string | null;
   inicio_en: string | null; fin_en: string | null; duracion_min: number | null;
   semana: number | null; anio: number | null; mes: number | null; semana_iso: number | null;
   creado_por: string; finalizado_por: string | null; validado_por: string | null; validado_en: string | null;

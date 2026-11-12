@@ -19,6 +19,9 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 // Frases con datos variables (los grupos se traducen de nuevo si son texto conocido).
 const PATRONES: [RegExp, (m: string[]) => string][] = [
   [/^(.*) Nada se perdió: presione de nuevo "Finalizar mantenimiento"\.$/, m => `${tr(m[1])} Nothing was lost: press "Finish maintenance" again.`],
+  [/^✓ (.+) · Servicio externo$/, m => `✓ ${m[1]} · External service`],
+  [/^(.+) \(mecánico externo\)$/, m => `${m[1]} (external mechanic)`],
+  [/^(.+) \(servicio externo\)$/, m => `${m[1]} (external service)`],
   [/^No existe un empleado con el código (.+?)\.?$/, m => `No employee exists with code ${m[1]}.`],
   [/^No se encontró la máquina (.+) en esta área\.$/, m => `Machine ${m[1]} was not found in this area.`],
   [/^Solo hay (.+) en existencia de (.+)\.$/, m => `Only ${m[1]} in stock of ${m[2]}.`],
