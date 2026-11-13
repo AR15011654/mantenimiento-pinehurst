@@ -57,7 +57,7 @@ function Barra({ valor, max, texto }: { valor: number; max: number; texto?: stri
 /** Dashboard de mantenimiento (administrador y gerentes). Todo se limita a las áreas autorizadas de cada usuario (RLS). */
 export default function Mantenimiento() {
   const { sesion } = useSesion();
-  const modulos = sesion?.modulos ?? [];
+  const modulos = useMemo(() => sesion?.modulos ?? [], [sesion?.modulos]);
   const [params] = useSearchParams();
   const desdeArea = modulos.find(m => m.codigo === params.get('m'));
   const [modulo, setModulo] = useState(desdeArea?.id ?? '');
@@ -131,12 +131,15 @@ export default function Mantenimiento() {
     if (!maqs) return null;
     const cuenta: Record<Estado, number> = { vencida: 0, por_vencer: 0, al_dia: 0, sin_registro: 0, sin_frecuencia: 0 };
     const porArea: Record<string, Record<Estado, number>> = {};
+    // Todas las áreas del alcance aparecen, aunque todavía no tengan máquinas.
+    const cero = (): Record<Estado, number> => ({ vencida: 0, por_vencer: 0, al_dia: 0, sin_registro: 0, sin_frecuencia: 0 });
+    modulos.filter(mo => !modulo || mo.id === modulo).forEach(mo => mo.areas.filter(a => !area || a.id === area).forEach(a => { porArea[a.nombre] = cero(); }));
     const lista: Record<Estado, (MaqProg & { dias: number | null })[]> = { vencida: [], por_vencer: [], al_dia: [], sin_registro: [], sin_frecuencia: [] };
     maqs.forEach(m => {
       const e = estadoProg(m, hoy);
       cuenta[e]++;
       const a = m.area ?? 'Sin área';
-      porArea[a] = porArea[a] ?? { vencida: 0, por_vencer: 0, al_dia: 0, sin_registro: 0, sin_frecuencia: 0 };
+      porArea[a] = porArea[a] ?? cero();
       porArea[a][e]++;
       lista[e].push({ ...m, dias: m.proximo_mantenimiento ? diasEntre(hoy, m.proximo_mantenimiento) : null });
     });
@@ -145,7 +148,7 @@ export default function Mantenimiento() {
     const conFrec = maqs.length - cuenta.sin_frecuencia;
     const cumplimiento = conFrec ? Math.round(((cuenta.al_dia + cuenta.por_vencer) / conFrec) * 100) : 0;
     return { cuenta, porArea, lista, conFrec, cumplimiento };
-  }, [maqs, hoy]);
+  }, [maqs, hoy, modulos, modulo, area]);
 
   // ---- Avance, mecánicos y máquinas ----
   const avance = useMemo(() => {
@@ -171,16 +174,19 @@ export default function Mantenimiento() {
       mec[k] = mec[k] ?? { nombre: t.snap_mecanico_nombre ?? 'Sin mecánico', n: 0, prev: 0, corr: 0, min: 0 };
       mec[k].n++; mec[k][t.tipo === 'preventivo' ? 'prev' : 'corr']++; mec[k].min += Number(t.duracion_min ?? 0);
     });
-    const maq: Record<string, { id: string; nombre: string; asset: string; area: string; corr: number; min: number }> = {};
-    trabs.filter(t => t.tipo === 'correctivo').forEach(t => {
-      maq[t.maquina_id] = maq[t.maquina_id] ?? { id: t.maquina_id, nombre: `${t.snap_maquina ?? ''}`, asset: t.snap_qr ?? t.snap_asset_id ?? '', area: t.snap_area ?? '', corr: 0, min: 0 };
-      maq[t.maquina_id].corr++; maq[t.maquina_id].min += Number(t.duracion_min ?? 0);
+    // Máquinas con mantenimientos (preventivos y correctivos), la más recientemente registrada primero.
+    const maq: Record<string, { id: string; nombre: string; asset: string; area: string; prev: number; corr: number; min: number; ultimo: string }> = {};
+    trabs.forEach(t => {
+      maq[t.maquina_id] = maq[t.maquina_id] ?? { id: t.maquina_id, nombre: `${t.snap_maquina ?? ''}`, asset: t.snap_qr ?? t.snap_asset_id ?? '', area: t.snap_area ?? '', prev: 0, corr: 0, min: 0, ultimo: '' };
+      const x = maq[t.maquina_id];
+      x[t.tipo === 'preventivo' ? 'prev' : 'corr']++; x.min += Number(t.duracion_min ?? 0);
+      if (t.fin_en && t.fin_en > x.ultimo) x.ultimo = t.fin_en;
     });
     return {
       total: trabs.length, prev, corr: trabs.length - prev, horas, largo, serie,
       porArea: Object.entries(porArea).sort((a, b) => (b[1].prev + b[1].corr) - (a[1].prev + a[1].corr)),
       mecanicos: Object.values(mec).sort((a, b) => b.n - a.n),
-      maquinas: Object.values(maq).sort((a, b) => b.corr - a.corr || b.min - a.min).slice(0, 10),
+      maquinas: Object.values(maq).sort((a, b) => b.ultimo.localeCompare(a.ultimo)),
     };
   }, [trabs, r.desde, r.hasta]);
 
@@ -285,23 +291,23 @@ export default function Mantenimiento() {
 
       {avance && (
         <section className="tarjeta">
-          <h2>Máquinas con más correctivos · {r.nombre}</h2>
-          {avance.maquinas.length === 0 ? <p className="nota">Sin correctivos en el período.</p> : (
+          <h2>Máquinas con mantenimientos · {r.nombre}</h2>
+          {avance.maquinas.length === 0 ? <p className="nota">Sin mantenimientos finalizados en el período.</p> : (
             <>
               <div className="tabla-scroll"><table className="tabla">
-                <thead><tr><th>Máquina</th><th>QR</th><th>Área</th><th>Correctivos</th><th>Tiempo en mantenimiento</th></tr></thead>
+                <thead><tr><th>Máquina</th><th>QR</th><th>Área</th><th>Preventivos</th><th>Correctivos</th><th>Último registro</th><th>Tiempo en mantenimiento</th></tr></thead>
                 <tbody>{avance.maquinas.map(m => (
                   <tr key={m.id} className={maqSel === m.id ? 'fila-sel' : ''}>
                     <td><button type="button" className="btn btn-link enlace-celda" aria-expanded={maqSel === m.id}
                       onClick={() => setMaqSel(maqSel === m.id ? null : m.id)}>{m.nombre || m.asset} {maqSel === m.id ? '▲' : '▼'}</button></td>
-                    <td>{m.asset}</td><td>{m.area}</td><td className="num">{m.corr}</td><td>{duracion(m.min)}</td>
+                    <td>{m.asset}</td><td>{m.area}</td><td className="num">{m.prev}</td><td className="num">{m.corr}</td><td>{fechaHora(m.ultimo)}</td><td>{duracion(m.min)}</td>
                   </tr>
                 ))}</tbody>
               </table></div>
-              <p className="nota">Toque una máquina para ver su información, sus correctivos y registrar costos o facturas.</p>
+              <p className="nota">Ordenadas por el registro más reciente. Toque una máquina para ver su información, sus mantenimientos y registrar costos o facturas.</p>
               {maqSel && avance.maquinas.some(m => m.id === maqSel) && (
                 <DetalleMaquinaCorrectivos key={maqSel} maquinaId={maqSel} maq={maqs?.find(x => x.id === maqSel) ?? null}
-                  trabajos={(trabs ?? []).filter(t => t.maquina_id === maqSel && t.tipo === 'correctivo')}
+                  trabajos={(trabs ?? []).filter(t => t.maquina_id === maqSel).sort((a, b) => (b.fin_en ?? '').localeCompare(a.fin_en ?? ''))}
                   onCerrar={() => setMaqSel(null)} onGuardado={() => cargar(true)} />
               )}
             </>
@@ -497,13 +503,13 @@ function DetalleMaquinaCorrectivos({ maquinaId, maq, trabajos, onCerrar, onGuard
           </dl>
           <p><Link to={`/maquina/${maquinaId}`}>Ver ficha completa de la máquina</Link></p>
 
-          <h3>Correctivos del período ({trabajos.length})</h3>
+          <h3>Mantenimientos del período ({trabajos.length})</h3>
           <div className="lista">
             {trabajos.map(t => (
               <div key={t.id} className="corr-item">
                 <div className="corr-linea">
                   <div>
-                    <Link to={`/trabajo/${t.id}`}><b>#{t.folio}</b></Link> · {fechaHora(t.fin_en)}
+                    <Link to={`/trabajo/${t.id}`}><b>#{t.folio}</b></Link> · <span className={`insignia ${t.tipo === 'correctivo' ? 'tipo-corr' : 'tipo-prev'}`}>{t.tipo === 'correctivo' ? 'Correctivo' : 'Preventivo'}</span> · {fechaHora(t.fin_en)}
                     <br /><span className="nota">{t.snap_mecanico_nombre ?? '—'} · {duracion(t.duracion_min)}</span>
                     <br /><span className="nota">Servicio externo: {montoTxt(ext[t.id])} · Facturas: {docs[t.id]?.length ?? 0}</span>
                   </div>
