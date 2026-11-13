@@ -13,7 +13,7 @@ type MaqSin = { id: string; asset_id: string; qr: string | null; tipo: string | 
 function sugerir(nombre: string): { area: string; tipo: string } | null {
   const n = nombre.toUpperCase().replace(/\s+/g, ' ').trim();
   if (/^LINE \d+$/.test(n)) return { area: 'COSTURA', tipo: 'linea' };
-  const mapa: Record<string, string> = { PD: 'PD', SERIGRAFIA: 'SERIGRAFIA', SUBLIMADO: 'SUBLIMADO', CORTE: 'CORTE', STAGING: 'STAGING', 'BODEGA DE TELAS': 'BODEGA_TELAS', BORDADO: 'BORDADO' };
+  const mapa: Record<string, string> = { PD: 'PD', SERIGRAFIA: 'SERIGRAFIA', SUBLIMADO: 'SUBLIMADO', CORTE: 'CORTE', STAGING: 'STAGING', 'BODEGA DE TELAS': 'BODEGA_TELAS', BORDADO: 'BORDADO', PLOTTER: 'PLOTTER' };
   return mapa[n] ? { area: mapa[n], tipo: 'area' } : null;
 }
 
