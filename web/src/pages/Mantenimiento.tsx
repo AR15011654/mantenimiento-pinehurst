@@ -258,15 +258,6 @@ export default function Mantenimiento() {
             <button className={`kpi kpi-btn ${listaProg === 'sin_registro' ? 'sel' : ''}`} onClick={() => setListaProg('sin_registro')}><span>{prog.cuenta.sin_registro}</span>Sin primer mantenimiento</button>
             <button className={`kpi kpi-btn ${listaProg === 'sin_frecuencia' ? 'sel' : ''}`} onClick={() => setListaProg('sin_frecuencia')}><span>{prog.cuenta.sin_frecuencia}</span>Sin frecuencia</button>
           </div>
-          <p className="nota">"Sin primer mantenimiento": la máquina tiene frecuencia, pero todavía no se le ha registrado ningún mantenimiento en esta aplicación; su próxima fecha se calcula al registrar el primero.</p>
-
-          <div className="tabla-scroll"><table className="tabla">
-            <thead><tr><th>Área</th><th>Vencidas</th><th>Vencen 7 días</th><th>Al día</th><th>Sin primer mant.</th><th>Sin frecuencia</th></tr></thead>
-            <tbody>{Object.entries(prog.porArea).sort(([a], [b]) => a.localeCompare(b)).map(([a, v]) => (
-              <tr key={a}><td>{a}</td><td className={v.vencida ? 'num malo' : 'num'}>{v.vencida}</td><td className="num">{v.por_vencer}</td><td className="num">{v.al_dia}</td><td className="num">{v.sin_registro}</td><td className="num">{v.sin_frecuencia}</td></tr>
-            ))}</tbody>
-          </table></div>
-
           <h3>{ESTADO_PROG[listaProg]} ({visibles.length})</h3>
           {visibles.length === 0 && <p className="nota">No hay máquinas en este grupo.</p>}
           {visibles.length > 0 && (
@@ -286,6 +277,15 @@ export default function Mantenimiento() {
           )}
           {visibles.length > 300 && <p className="nota">Se muestran 300 de {visibles.length}. Descargue el Excel para verlas todas.</p>}
           <button className="btn btn-sec" onClick={exportarProgramacion}>Descargar programación en Excel</button>
+
+          <p className="nota">"Sin primer mantenimiento": la máquina tiene frecuencia, pero todavía no se le ha registrado ningún mantenimiento en esta aplicación; su próxima fecha se calcula al registrar el primero.</p>
+
+          <div className="tabla-scroll"><table className="tabla">
+            <thead><tr><th>Área</th><th>Vencidas</th><th>Vencen 7 días</th><th>Al día</th><th>Sin primer mant.</th><th>Sin frecuencia</th></tr></thead>
+            <tbody>{Object.entries(prog.porArea).sort(([a], [b]) => a.localeCompare(b)).map(([a, v]) => (
+              <tr key={a}><td>{a}</td><td className={v.vencida ? 'num malo' : 'num'}>{v.vencida}</td><td className="num">{v.por_vencer}</td><td className="num">{v.al_dia}</td><td className="num">{v.sin_registro}</td><td className="num">{v.sin_frecuencia}</td></tr>
+            ))}</tbody>
+          </table></div>
         </section>
       )}
 
