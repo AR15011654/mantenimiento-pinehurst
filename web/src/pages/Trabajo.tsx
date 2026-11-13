@@ -258,7 +258,7 @@ export default function Trabajo() {
           {!verPrecios ? (docs.length > 0 && <p className="nota">Cotización o factura adjunta ({docs.length}).</p>) : docs.length > 0 ? (
             <div className="doc-lista">
               {docs.map(d => d.url
-                ? <a key={d.id} href={d.url} target="_blank" rel="noreferrer">{d.tipo_mime === 'application/pdf' ? '📄' : '🖼️'} {d.nombre_original ?? 'Documento'}</a>
+                ? <a key={d.id} href={d.url} target="_blank" rel="noreferrer">{d.tipo_mime === 'application/pdf' ? '📄' : (d.tipo_mime ?? '').includes('excel') || (d.tipo_mime ?? '').includes('sheet') ? '📊' : '🖼️'} {d.nombre_original ?? 'Documento'}</a>
                 : <span key={d.id}>{d.nombre_original ?? 'Documento'} (no disponible)</span>)}
             </div>
           ) : <p className="nota">Sin cotización o factura adjunta.</p>}

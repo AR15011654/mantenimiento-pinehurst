@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { duracion, fecha, FRECUENCIAS, mensajeError, supabase, todas } from '../lib';
+import { duracion, fecha, fechaHora, FRECUENCIAS, mensajeError, nuevaClave, rpc, supabase, todas } from '../lib';
 import { descargarExcel } from '../excel';
 import { useSesion } from '../sesion';
-import { Aviso, Cargando, Titulo } from '../ui';
+import { Aviso, Cargando, Dato, Titulo } from '../ui';
 import ModuloImagen, { ETIQUETA_MODULO } from '../ModuloImagen';
 
 type MaqProg = {
@@ -12,7 +12,7 @@ type MaqProg = {
   frecuencia: string | null; ultimo_mantenimiento_en: string | null; proximo_mantenimiento: string | null; activo: boolean; estado_inventario: string | null;
 };
 type Trab = {
-  id: string; tipo: string; estado: string; maquina_id: string; mecanico_id: string | null; area_id: string | null;
+  id: string; folio: number; tipo: string; estado: string; maquina_id: string; mecanico_id: string | null; area_id: string | null;
   snap_area: string | null; snap_maquina: string | null; snap_asset_id: string | null; snap_qr: string | null; snap_ubicacion: string | null;
   snap_mecanico_nombre: string | null; fin_en: string | null; duracion_min: number | null;
 };
@@ -77,8 +77,10 @@ export default function Mantenimiento() {
   const r = rango(periodo);
   const hoy = hoyISO();
 
-  const cargar = useCallback(async () => {
-    setError(null); setMaqs(null); setTrabs(null);
+  const [maqSel, setMaqSel] = useState<string | null>(null);
+  // silencioso: recarga sin vaciar la pantalla (después de guardar un costo o una factura).
+  const cargar = useCallback(async (silencioso = false) => {
+    setError(null); if (!silencioso) { setMaqs(null); setTrabs(null); }
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const filtro = (q: any) => { let x = q; if (modulo) x = x.eq('modulo_id', modulo); if (area) x = x.eq('area_id', area); return x; };
@@ -87,7 +89,7 @@ export default function Mantenimiento() {
           .select('id, asset_id, qr, serie, tipo, fabricante, ubicacion, puesto, modulo_id, area_id, area, frecuencia, ultimo_mantenimiento_en, proximo_mantenimiento, activo, estado_inventario')
           .eq('activo', true)).order('asset_id')),
         todas<Trab>(() => filtro(supabase.from('mantenimientos')
-          .select('id, tipo, estado, maquina_id, mecanico_id, area_id, snap_area, snap_maquina, snap_asset_id, snap_qr, snap_ubicacion, snap_mecanico_nombre, fin_en, duracion_min')
+          .select('id, folio, tipo, estado, maquina_id, mecanico_id, area_id, snap_area, snap_maquina, snap_asset_id, snap_qr, snap_ubicacion, snap_mecanico_nombre, fin_en, duracion_min')
           .in('estado', ['pendiente_validacion', 'completado'])
           .gte('fin_en', `${r.desde}T00:00:00-06:00`).lte('fin_en', `${r.hasta}T23:59:59.999-06:00`)).order('fin_en')),
       ]);
@@ -95,7 +97,7 @@ export default function Mantenimiento() {
       setMaqs(m.filter(x => (x.estado_inventario ?? '').toUpperCase() !== 'DESCARTADO'));
       setTrabs(t);
       // Costos de los trabajos finalizados en el período: repuestos usados (inventario) + servicio externo.
-      setCostos(null);
+      if (!silencioso) setCostos(null);
       const ids = t.map(x => x.id);
       const porTrab = new Map(t.map(x => [x.id, x.maquina_id]));
       const rep: Record<string, number> = {}, usd: Record<string, number> = {}, hnl: Record<string, number> = {}, pendiente: Record<string, number> = {};
@@ -169,9 +171,9 @@ export default function Mantenimiento() {
       mec[k] = mec[k] ?? { nombre: t.snap_mecanico_nombre ?? 'Sin mecánico', n: 0, prev: 0, corr: 0, min: 0 };
       mec[k].n++; mec[k][t.tipo === 'preventivo' ? 'prev' : 'corr']++; mec[k].min += Number(t.duracion_min ?? 0);
     });
-    const maq: Record<string, { nombre: string; asset: string; area: string; corr: number; min: number }> = {};
+    const maq: Record<string, { id: string; nombre: string; asset: string; area: string; corr: number; min: number }> = {};
     trabs.filter(t => t.tipo === 'correctivo').forEach(t => {
-      maq[t.maquina_id] = maq[t.maquina_id] ?? { nombre: `${t.snap_maquina ?? ''}`, asset: t.snap_qr ?? t.snap_asset_id ?? '', area: t.snap_area ?? '', corr: 0, min: 0 };
+      maq[t.maquina_id] = maq[t.maquina_id] ?? { id: t.maquina_id, nombre: `${t.snap_maquina ?? ''}`, asset: t.snap_qr ?? t.snap_asset_id ?? '', area: t.snap_area ?? '', corr: 0, min: 0 };
       maq[t.maquina_id].corr++; maq[t.maquina_id].min += Number(t.duracion_min ?? 0);
     });
     return {
@@ -236,7 +238,7 @@ export default function Mantenimiento() {
         ))}
       </div>
 
-      {error && <Aviso tipo="error" onReintentar={cargar}>{error}</Aviso>}
+      {error && <Aviso tipo="error" onReintentar={() => cargar()}>{error}</Aviso>}
       {(!prog || !avance) && !error && <Cargando texto="Calculando indicadores…" />}
 
       {prog && (
@@ -282,6 +284,32 @@ export default function Mantenimiento() {
       )}
 
       {avance && (
+        <section className="tarjeta">
+          <h2>Máquinas con más correctivos · {r.nombre}</h2>
+          {avance.maquinas.length === 0 ? <p className="nota">Sin correctivos en el período.</p> : (
+            <>
+              <div className="tabla-scroll"><table className="tabla">
+                <thead><tr><th>Máquina</th><th>QR</th><th>Área</th><th>Correctivos</th><th>Tiempo en mantenimiento</th></tr></thead>
+                <tbody>{avance.maquinas.map(m => (
+                  <tr key={m.id} className={maqSel === m.id ? 'fila-sel' : ''}>
+                    <td><button type="button" className="btn btn-link enlace-celda" aria-expanded={maqSel === m.id}
+                      onClick={() => setMaqSel(maqSel === m.id ? null : m.id)}>{m.nombre || m.asset} {maqSel === m.id ? '▲' : '▼'}</button></td>
+                    <td>{m.asset}</td><td>{m.area}</td><td className="num">{m.corr}</td><td>{duracion(m.min)}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              <p className="nota">Toque una máquina para ver su información, sus correctivos y registrar costos o facturas.</p>
+              {maqSel && avance.maquinas.some(m => m.id === maqSel) && (
+                <DetalleMaquinaCorrectivos key={maqSel} maquinaId={maqSel} maq={maqs?.find(x => x.id === maqSel) ?? null}
+                  trabajos={(trabs ?? []).filter(t => t.maquina_id === maqSel && t.tipo === 'correctivo')}
+                  onCerrar={() => setMaqSel(null)} onGuardado={() => cargar(true)} />
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {avance && (
         <>
           <section className="tarjeta">
             <h2>Avance · {r.nombre} ({fecha(r.desde)} – {fecha(r.hasta)})</h2>
@@ -322,17 +350,6 @@ export default function Mantenimiento() {
 
           <CostosMaquina trabs={trabs!} maqs={maqs!} costos={costos} periodo={`${r.nombre} (${fecha(r.desde)} – ${fecha(r.hasta)})`} />
 
-          <section className="tarjeta">
-            <h2>Máquinas con más correctivos · {r.nombre}</h2>
-            {avance.maquinas.length === 0 ? <p className="nota">Sin correctivos en el período.</p> : (
-              <div className="tabla-scroll"><table className="tabla">
-                <thead><tr><th>Máquina</th><th>QR</th><th>Área</th><th>Correctivos</th><th>Tiempo en mantenimiento</th></tr></thead>
-                <tbody>{avance.maquinas.map(m => (
-                  <tr key={m.asset + m.nombre}><td>{m.nombre}</td><td>{m.asset}</td><td>{m.area}</td><td className="num">{m.corr}</td><td>{duracion(m.min)}</td></tr>
-                ))}</tbody>
-              </table></div>
-            )}
-          </section>
         </>
       )}
     </main>
@@ -409,5 +426,190 @@ function CostosMaquina({ trabs, maqs, costos, periodo }: {
         </>
       )}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------- Detalle de una máquina con correctivos
+type Externo = { mantenimiento_id: string; proveedor: string; costo: number | null; moneda: string | null };
+type Doc = { id: string; mantenimiento_id: string; ruta: string; nombre_original: string | null; tipo_mime: string | null; url?: string };
+const TIPOS_FACTURA: Record<string, string> = {
+  pdf: 'application/pdf', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls: 'application/vnd.ms-excel',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+};
+const iconoDoc = (mime: string | null) => mime === 'application/pdf' ? '📄' : (mime ?? '').includes('sheet') || mime === 'application/vnd.ms-excel' ? '📊' : '🖼️';
+
+function DetalleMaquinaCorrectivos({ maquinaId, maq, trabajos, onCerrar, onGuardado }: {
+  maquinaId: string; maq: MaqProg | null; trabajos: Trab[]; onCerrar: () => void; onGuardado: () => void;
+}) {
+  const [info, setInfo] = useState<Record<string, string | null> | null>(null);
+  const [ext, setExt] = useState<Record<string, Externo>>({});
+  const [docs, setDocs] = useState<Record<string, Doc[]>>({});
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [edit, setEdit] = useState<string | null>(null);
+  const ids = trabajos.map(t => t.id).join(',');
+
+  const cargar = useCallback(async () => {
+    setError(null);
+    try {
+      const lista = ids ? ids.split(',') : [];
+      const [mq, se, dc] = await Promise.all([
+        supabase.from('v_maquinas').select('*').eq('id', maquinaId).maybeSingle(),
+        lista.length ? supabase.from('v_servicio_externo').select('mantenimiento_id, proveedor, costo, moneda').in('mantenimiento_id', lista) : Promise.resolve({ data: [], error: null }),
+        lista.length ? supabase.from('mantenimiento_documentos').select('id, mantenimiento_id, ruta, nombre_original, tipo_mime').in('mantenimiento_id', lista).order('creado_en') : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (mq.error) throw mq.error; if (se.error) throw se.error; if (dc.error) throw dc.error;
+      setInfo((mq.data ?? null) as Record<string, string | null> | null);
+      setExt(Object.fromEntries(((se.data ?? []) as Externo[]).map(x => [x.mantenimiento_id, x])));
+      const ds = (dc.data ?? []) as Doc[];
+      if (ds.length) {
+        const s = await supabase.storage.from('mant-evidencias').createSignedUrls(ds.map(d => d.ruta), 3600);
+        ds.forEach((d, i) => { d.url = s.data?.[i]?.signedUrl ?? undefined; });
+      }
+      const porT: Record<string, Doc[]> = {};
+      ds.forEach(d => { (porT[d.mantenimiento_id] ??= []).push(d); });
+      setDocs(porT);
+    } catch (e) { setError(mensajeError(e)); }
+    finally { setCargando(false); }
+  }, [maquinaId, ids]);
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const v = (k: string) => info?.[k] ?? null;
+  const nombre = [v('tipo') ?? maq?.tipo, v('fabricante') ?? maq?.fabricante, v('modelo')].filter(Boolean).join(' · ') || trabajos[0]?.snap_maquina || '—';
+  const montoTxt = (x?: Externo) => !x ? '—' : x.costo === null ? `${x.proveedor} · sin costo` : `${x.proveedor} · ${x.moneda === 'HNL' ? lps(Number(x.costo)) : usd(Number(x.costo))}`;
+
+  return (
+    <div className="detalle-maquina">
+      <div className="detalle-cabecera">
+        <h3>{nombre}</h3>
+        <button type="button" className="btn btn-link" onClick={onCerrar} aria-label="Cerrar detalle">✕ Cerrar</button>
+      </div>
+      {error && <Aviso tipo="error" onReintentar={cargar}>{error}</Aviso>}
+      {cargando ? <Cargando texto="Cargando máquina…" /> : (
+        <>
+          <dl className="datos">
+            <Dato k="QR / Serie" v={`${v('qr') ?? maq?.qr ?? '—'} / ${v('serie') ?? maq?.serie ?? '—'}`} />
+            <Dato k="Asset ID" v={v('asset_id') ?? maq?.asset_id} />
+            <Dato k="Área" v={v('area') ?? maq?.area} />
+            <Dato k="Ubicación" v={`${v('ubicacion') ?? maq?.ubicacion ?? '—'}${(v('puesto') ?? maq?.puesto) ? ' / ' + (v('puesto') ?? maq?.puesto) : ''}`} />
+            <Dato k="Frecuencia" v={(v('frecuencia') ?? maq?.frecuencia) ? FRECUENCIAS[(v('frecuencia') ?? maq?.frecuencia)!] ?? v('frecuencia') : 'Sin definir'} />
+            <Dato k="Próximo mantenimiento" v={fecha(v('proximo_mantenimiento') ?? maq?.proximo_mantenimiento)} />
+          </dl>
+          <p><Link to={`/maquina/${maquinaId}`}>Ver ficha completa de la máquina</Link></p>
+
+          <h3>Correctivos del período ({trabajos.length})</h3>
+          <div className="lista">
+            {trabajos.map(t => (
+              <div key={t.id} className="corr-item">
+                <div className="corr-linea">
+                  <div>
+                    <Link to={`/trabajo/${t.id}`}><b>#{t.folio}</b></Link> · {fechaHora(t.fin_en)}
+                    <br /><span className="nota">{t.snap_mecanico_nombre ?? '—'} · {duracion(t.duracion_min)}</span>
+                    <br /><span className="nota">Servicio externo: {montoTxt(ext[t.id])} · Facturas: {docs[t.id]?.length ?? 0}</span>
+                  </div>
+                  {edit !== t.id && <button type="button" className="btn btn-sec btn-chico" onClick={() => setEdit(t.id)}>Editar</button>}
+                </div>
+                {(docs[t.id] ?? []).length > 0 && (
+                  <div className="doc-lista">{docs[t.id].map(d => d.url
+                    ? <a key={d.id} href={d.url} target="_blank" rel="noreferrer">{iconoDoc(d.tipo_mime)} {d.nombre_original ?? 'Factura'}</a>
+                    : <span key={d.id}>{d.nombre_original ?? 'Factura'} (no disponible)</span>)}</div>
+                )}
+                {edit === t.id && (
+                  <EditarCostoFactura trabajo={t} externo={ext[t.id]} onCancelar={() => setEdit(null)}
+                    onGuardado={async () => { setEdit(null); await cargar(); onGuardado(); }} />
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function EditarCostoFactura({ trabajo, externo, onCancelar, onGuardado }: {
+  trabajo: Trab; externo?: Externo; onCancelar: () => void; onGuardado: () => void;
+}) {
+  const [proveedor, setProveedor] = useState(externo?.proveedor ?? '');
+  const [costo, setCosto] = useState(externo?.costo === null || externo?.costo === undefined ? '' : String(externo.costo));
+  const [moneda, setMoneda] = useState(externo?.moneda ?? 'USD');
+  const [archivos, setArchivos] = useState<File[]>([]);
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function agregar(lista: FileList | null) {
+    setError(null);
+    const nuevos: File[] = [];
+    for (const f of Array.from(lista ?? [])) {
+      const ext = (f.name.split('.').pop() ?? '').toLowerCase();
+      if (!TIPOS_FACTURA[ext]) { setError(`${f.name}: solo se aceptan PDF, Excel (.xlsx, .xls) o imagen.`); continue; }
+      if (f.size > 10 * 1024 * 1024) { setError(`${f.name}: el archivo pasa de 10 MB.`); continue; }
+      nuevos.push(f);
+    }
+    setArchivos(a => [...a, ...nuevos]);
+  }
+
+  async function guardar() {
+    setError(null);
+    const txt = costo.replace(/[$,\s]/g, ''); const n = Number(txt);
+    if (txt && (!Number.isFinite(n) || n < 0)) { setError('El costo no es válido.'); return; }
+    if (txt && !proveedor.trim()) { setError('Escriba el proveedor para registrar el costo.'); return; }
+    if (!proveedor.trim() && externo) { setError('El proveedor no puede quedar vacío.'); return; }
+    const cambiaCosto = proveedor.trim() !== (externo?.proveedor ?? '') || (txt ? n : null) !== (externo?.costo ?? null) || (txt && moneda !== (externo?.moneda ?? 'USD'));
+    if (!cambiaCosto && archivos.length === 0) { setError('No hay cambios que guardar.'); return; }
+    setOcupado(true);
+    try {
+      if (proveedor.trim() && cambiaCosto) {
+        await rpc('registrar_servicio_externo', { p_mantenimiento_id: trabajo.id, p_proveedor: proveedor.trim(), p_costo: txt ? n : null, p_moneda: txt ? moneda : null });
+      }
+      for (const f of archivos) {
+        const ext = (f.name.split('.').pop() ?? '').toLowerCase(); const mime = TIPOS_FACTURA[ext];
+        const ruta = `${trabajo.id}/docs/${nuevaClave()}.${ext}`;
+        const up = await supabase.storage.from('mant-evidencias').upload(ruta, f, { contentType: mime, upsert: false });
+        if (up.error) throw new Error(`No se pudo subir ${f.name}: ${mensajeError(up.error)}`);
+        await rpc('registrar_documento', { p_mantenimiento_id: trabajo.id, p_ruta: ruta, p_nombre: f.name, p_mime: mime, p_tamano: f.size });
+        setArchivos(a => a.filter(x => x !== f));
+      }
+      onGuardado();
+    } catch (e) { setError(mensajeError(e)); }
+    finally { setOcupado(false); }
+  }
+
+  return (
+    <div className="bloque-externo">
+      <div className="campo">
+        <span className="campo-etiqueta">PROVEEDOR</span>
+        <input value={proveedor} onChange={e => setProveedor(e.target.value)} placeholder="Nombre del proveedor o taller" />
+      </div>
+      <div className="campo">
+        <span className="campo-etiqueta">COSTO</span>
+        <div className="campo-costo">
+          <input value={costo} inputMode="decimal" placeholder="0.00" onChange={e => setCosto(e.target.value)} />
+          <select value={moneda} onChange={e => setMoneda(e.target.value)} aria-label="Moneda">
+            <option value="USD">USD $</option><option value="HNL">HNL L</option>
+          </select>
+        </div>
+      </div>
+      <div className="campo">
+        <span className="campo-etiqueta">FACTURA</span>
+        <label className="caja-foto caja-factura">
+          <span>📎 Subir factura (PDF, Excel o imagen)</span>
+          <input type="file" multiple accept=".pdf,.xlsx,.xls,image/*,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            onChange={e => { agregar(e.target.files); e.target.value = ''; }} />
+        </label>
+        {archivos.length > 0 && (
+          <div className="doc-lista">{archivos.map((f, i) => (
+            <span key={i}>{iconoDoc(TIPOS_FACTURA[(f.name.split('.').pop() ?? '').toLowerCase()])} {f.name}
+              <button type="button" className="btn btn-link peligro" aria-label="Quitar archivo" onClick={() => setArchivos(a => a.filter(x => x !== f))}>✕</button></span>
+          ))}</div>
+        )}
+        <span className="nota">Hasta 10 MB por archivo. Se guarda en el trabajo #{trabajo.folio}.</span>
+      </div>
+      {error && <Aviso tipo="error">{error}</Aviso>}
+      <div className="fila-botones">
+        <button type="button" className="btn btn-pri" disabled={ocupado} onClick={guardar}>{ocupado ? 'Guardando…' : 'Guardar'}</button>
+        <button type="button" className="btn btn-sec" disabled={ocupado} onClick={onCancelar}>Cancelar</button>
+      </div>
+    </div>
   );
 }
