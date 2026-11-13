@@ -267,3 +267,13 @@ button.volver { background: none; border: none; cursor: pointer; font: inherit; 
 /* Registro: casilla de servicio externo bajo el campo del mecánico */
 .check-externo { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; font-size: .95rem; color: var(--texto2); cursor: pointer; }
 .check-externo input { width: 1.2rem; height: 1.2rem; flex: none; accent-color: var(--pri); }
+
+/* Panel: detalle de máquina con correctivos */
+.enlace-celda { padding: 0; text-align: left; font-weight: 600; }
+.tabla tr.fila-sel td { background: var(--pri-claro); }
+.detalle-maquina { margin-top: 12px; padding: 14px; border: 1px solid var(--borde); border-left: 4px solid var(--pri); border-radius: var(--radio); background: var(--sutil); }
+.detalle-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.detalle-cabecera h3 { margin: 0; }
+.corr-item { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--linea); }
+.corr-linea { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.caja-factura { min-height: 70px; font-size: .95rem; text-align: center; padding: 4px; }
