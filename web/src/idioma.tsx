@@ -23,6 +23,7 @@ const PATRONES: [RegExp, (m: string[]) => string][] = [
   [/^(.+) \(mecánico externo\)$/, m => `${m[1]} (external mechanic)`],
   [/^(.+) \(servicio externo\)$/, m => `${m[1]} (external service)`],
   [/^Correctivos del período \((\d+)\)$/, m => `Corrective jobs in the period (${m[1]})`],
+  [/^Mantenimientos del período \((\d+)\)$/, m => `Maintenance jobs in the period (${m[1]})`],
   [/^(.+) · sin costo$/, m => `${m[1]} · no cost`],
   [/^Hasta 10 MB por archivo\. Se guarda en el trabajo #(\d+)\.$/, m => `Up to 10 MB per file. Saved in job #${m[1]}.`],
   [/^(.+): solo se aceptan PDF, Excel \(\.xlsx, \.xls\) o imagen\.$/, m => `${m[1]}: only PDF, Excel (.xlsx, .xls) or image files are accepted.`],

@@ -277,3 +277,5 @@ button.volver { background: none; border: none; cursor: pointer; font: inherit; 
 .corr-item { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--linea); }
 .corr-linea { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .caja-factura { min-height: 70px; font-size: .95rem; text-align: center; padding: 4px; }
+.insignia.tipo-corr { background: var(--alerta-fondo); color: var(--alerta); }
+.insignia.tipo-prev { background: var(--ok-fondo); color: var(--ok); }
