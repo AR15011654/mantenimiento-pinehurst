@@ -193,7 +193,7 @@ textarea { resize: vertical; }
 .kpi-btn { font: inherit; text-align: left; cursor: pointer; }
 .kpi.sel { border: 2px solid var(--pri); background: var(--pri-claro); }
 .kpi.malo span { color: var(--error); }
-.tabla td.num { text-align: right; } .tabla td.malo { color: var(--error); font-weight: 700; }
+.tabla td.num { text-align: center; } .tabla td.malo { color: var(--error); font-weight: 700; }
 .barra-linea { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: center; margin: 4px 0; font-size: .88rem; }
 .barra-etq { color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .barra-fila { display: flex; align-items: center; gap: 8px; }
@@ -279,3 +279,19 @@ button.volver { background: none; border: none; cursor: pointer; font: inherit; 
 .caja-factura { min-height: 70px; font-size: .95rem; text-align: center; padding: 4px; }
 .insignia.tipo-corr { background: var(--alerta-fondo); color: var(--alerta); }
 .insignia.tipo-prev { background: var(--ok-fondo); color: var(--ok); }
+
+/* Números centrados en todas las tablas; el encabezado de cada columna numérica también se centra. */
+.tabla:has(tbody td.num:nth-child(1)) thead th:nth-child(1),
+.tabla:has(tbody td.num:nth-child(2)) thead th:nth-child(2),
+.tabla:has(tbody td.num:nth-child(3)) thead th:nth-child(3),
+.tabla:has(tbody td.num:nth-child(4)) thead th:nth-child(4),
+.tabla:has(tbody td.num:nth-child(5)) thead th:nth-child(5),
+.tabla:has(tbody td.num:nth-child(6)) thead th:nth-child(6),
+.tabla:has(tbody td.num:nth-child(7)) thead th:nth-child(7),
+.tabla:has(tbody td.num:nth-child(8)) thead th:nth-child(8),
+.tabla:has(tbody td.num:nth-child(9)) thead th:nth-child(9),
+.tabla:has(tbody td.num:nth-child(10)) thead th:nth-child(10),
+.tabla:has(tbody td.num:nth-child(11)) thead th:nth-child(11),
+.tabla:has(tbody td.num:nth-child(12)) thead th:nth-child(12),
+.tabla:has(tbody td.num:nth-child(13)) thead th:nth-child(13),
+.tabla:has(tbody td.num:nth-child(14)) thead th:nth-child(14) { text-align: center; }
